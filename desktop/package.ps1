@@ -1,7 +1,9 @@
+param([switch]$SkipArchive)
 $ErrorActionPreference = 'Stop'
 $projectRoot = Split-Path $PSScriptRoot -Parent
 $release = Join-Path $PSScriptRoot 'out\Release'
-$destination = Join-Path $projectRoot 'dist\StreamCam-preview'
+$destination = [IO.Path]::GetFullPath((Join-Path $projectRoot 'dist\StreamCam-preview'))
+if ($destination -ne [IO.Path]::GetFullPath((Join-Path $projectRoot 'dist/StreamCam-preview'))) { throw 'Destino de paquete inesperado.' }
 $required = @(
     (Join-Path $release 'StreamCamDesktop.exe'),
     (Join-Path $release 'create-identity.ps1'),
@@ -38,6 +40,13 @@ Copy-Item -LiteralPath $required[0] -Destination (Join-Path $destination 'Stream
 Copy-Item -LiteralPath $required[1] -Destination $destination -Force
 Copy-Item -LiteralPath $required[4] -Destination $destination -Force
 Get-ChildItem -LiteralPath $release -Filter '*.dll' -File | Copy-Item -Destination $destination -Force
+$vswhere = Join-Path ${env:ProgramFiles(x86)} 'Microsoft Visual Studio/Installer/vswhere.exe'
+$vsInstall = & $vswhere -latest -products '*' -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath
+$crt = Get-ChildItem -LiteralPath (Join-Path $vsInstall 'VC/Redist/MSVC') -Directory |
+    Sort-Object Name -Descending | ForEach-Object { Join-Path $_.FullName 'x64/Microsoft.VC143.CRT' } |
+    Where-Object { Test-Path -LiteralPath $_ } | Select-Object -First 1
+if (!$crt) { throw 'Falta el runtime redistribuible MSVC x64.' }
+Get-ChildItem -LiteralPath $crt -Filter '*.dll' -File | Copy-Item -Destination $destination -Force
 foreach ($folder in @('platforms','styles','tls','imageformats','generic','networkinformation')) {
     $source = Join-Path $release $folder
     if (Test-Path -LiteralPath $source) { Copy-Item -LiteralPath $source -Destination $destination -Recurse -Force }
@@ -67,8 +76,8 @@ $files | Sort-Object FullName | ForEach-Object {
 } | Set-Content -LiteralPath (Join-Path $destination 'SHA256SUMS.txt')
 $distributionRoot = Join-Path $projectRoot 'dist'
 $archive = Join-Path $distributionRoot 'StreamCam-Windows-x64-preview.zip'
-Compress-Archive -Path (Join-Path $destination '*') -DestinationPath $archive -Force
+if (!$SkipArchive) { Compress-Archive -Path (Join-Path $destination '*') -DestinationPath $archive -Force }
 Copy-Item -LiteralPath (Join-Path $android 'StreamCam-preview.apk') -Destination (Join-Path $distributionRoot 'StreamCam-preview.apk') -Force
-Write-Output "Paquete Windows completo: $archive"
+if (!$SkipArchive) { Write-Output "Paquete Windows completo: $archive" }
 Write-Output "APK Android de prueba: $(Join-Path $distributionRoot 'StreamCam-preview.apk')"
 Write-Output "Carpeta descomprimida (StreamCam.exe requiere sus DLL vecinas): $destination"

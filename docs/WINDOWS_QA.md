@@ -34,6 +34,8 @@ Detener video conserva el enlace con el teléfono y restablece el receptor para 
 
 ## Recorrido de aceptación
 
+Para 0.2.0-preview se ejecutó además el instalador por usuario en una ruta de prueba con espacios y su reinstalación. `--check-install` verificó componentes, creación/recarga de identidad temporal y arranque de ADB. La comprobación también pasó con PATH limitado a System32, política de proceso AllSigned y script marcado como descargado de Internet. Se abrió la app instalada, se inspeccionó la pantalla inicial, se abrió/cerró la ayuda de OBS y se cerró la app normalmente. Estas comprobaciones no sustituyen las pruebas físicas de medios listadas abajo.
+
 1. Abrir sin teléfono: el modo USB y sus instrucciones deben ser claros. Conectar debe fallar sin congelar la ventana y permitir reintentar.
 2. Conectar un único Android autorizado: pulsar Conectar por USB debe abrir StreamCam en Android sin mostrar un QR. Confirmar confianza cuando corresponda.
 3. Iniciar la cámara: comprobar resolución/FPS y el indicador USB en Windows. Cambiar el tamaño de la ventana y verificar que el video mantiene su proporción.

@@ -2,6 +2,10 @@
 
 ## Paquetes descargados
 
+**Opción recomendada para Windows:** descargá el archivo terminado en `windows-x64-setup.exe` desde [Releases](https://github.com/julianzanutti/StreamCam/releases), ejecutalo y seguí el asistente. Incluye las dependencias de Windows, ADB y PowerShell; no necesita SDKs ni instalar Visual C++ por separado. Instala para tu usuario, agrega accesos directos y un desinstalador. Con OBS cerrado, marcá la opción de instalar la fuente si usás OBS Studio 33.0.1 de 64 bits. Las actualizaciones conservan la identidad y los teléfonos vinculados. Abrí StreamCam desde Inicio o el escritorio. Para quitarlo, usá Aplicaciones de Windows.
+
+### Alternativa portable (ZIP)
+
 Descargá `StreamCam-preview.apk` para Android y el ZIP completo para Windows desde la sección **Releases**. El APK de esta compilación es de prueba. Conservá el ZIP completo: incluye `StreamCam.exe`, las DLL de Qt, PowerShell y ADB necesarios para funcionar. La identidad de esta PC se crea al conectar y se guarda en la carpeta local de datos de Windows; nunca viene dentro de la descarga. No muevas archivos individuales fuera de sus carpetas.
 
 ### Android

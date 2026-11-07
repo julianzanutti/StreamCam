@@ -48,7 +48,7 @@
 
 ## Windows no puede preparar la identidad de esta PC
 
-- Si aparece **not digitally signed**, **SecurityError** o **running scripts is disabled**, descargá la versión **0.1.2-preview o posterior** y extraé el ZIP completo. Se corrigió el inicio del script descargado: la opción de ejecución se aplica únicamente al proceso de PowerShell de StreamCam; no cambia la política permanente de Windows. Una política corporativa puede seguir bloqueándolo y debe revisarla el administrador del equipo.
+- Si aparece **not digitally signed**, **SecurityError** o **running scripts is disabled**, descargá el **instalador de 0.2.0-preview o posterior** y volvé a instalar StreamCam. Se corrigió el inicio del script descargado: la opción de ejecución se aplica únicamente al proceso de PowerShell de StreamCam; no cambia la política permanente de Windows. Una política corporativa puede seguir bloqueándolo y debe revisarla el administrador del equipo.
 - Usa el ZIP completo y extrae todos sus archivos a una carpeta normal; no ejecutes solo `StreamCam.exe` ni lo abras desde la vista previa del ZIP.
 - La identidad se crea al conectar y se guarda en los datos locales de tu usuario de Windows. No copies una identidad desde otra PC ni borres esos archivos mientras haya teléfonos vinculados.
 - Si el mensaje menciona PowerShell o acceso a la carpeta, reinicia StreamCam y verifica que tu usuario pueda escribir en `%LOCALAPPDATA%\StreamCam\StreamCam`. Si sigue fallando, anota el detalle que aparece en la app y compártelo sin enviar archivos de identidad.

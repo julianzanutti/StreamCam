@@ -1,6 +1,6 @@
 # Estado de StreamCam
 
-Actualizado: 2026-11-07. Integración candidata con audio opcional; compilaciones locales listas. El audio requiere validación física en OBS antes de considerarse estable.
+Actualizado: 2026-11-07. Versión Windows 0.2.0-preview con instalador por usuario y dependencias incluidas. El audio requiere validación física en OBS antes de considerarse estable.
 
 ## Implementado
 
@@ -23,6 +23,11 @@ Transporte: Wi-Fi WebRTC H.264/Opus y USB H.264/PCM por TLS sobre ADB reverse. L
 | Compilación APK Android debug | Aprobada |
 | Compilación del cliente Windows con Qt/WebRTC | Aprobada |
 | Compilación de la fuente OBS con audio/video | Aprobada |
+| Script de identidad descargado bajo AllSigned: bloqueo reproducido y corrección verificada | Aprobada |
+| Instalación Windows limpia y reinstalación en ruta con espacios | Aprobada |
+| Identidad temporal, recarga y arranque ADB desde la instalación | Aprobada |
+| Arranque comprobado con PATH mínimo y script marcado como descargado bajo AllSigned | Aprobada |
+| Interfaz instalada, ayuda OBS y cierre normal | Aprobada |
 | UI Android retrato/paisaje y selección de modo | Revisada en recursos/código; comprobación física pendiente |
 | Audio USB y audio Wi-Fi en micrófono real hacia OBS | Pendiente |
 | Audio y video simultáneos, fuente y medidor OBS reales | Pendiente |

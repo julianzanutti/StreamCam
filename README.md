@@ -11,7 +11,7 @@ StreamCam conecta el micrófono y la cámara de un teléfono Android con OBS Stu
 
 ## Empezar
 
-**Para probar sin compilar:** abrí [la versión de prueba en GitHub](https://github.com/julianzanutti/StreamCam/releases) y seguí [EMPEZAR.md](EMPEZAR.md). Descargá el ZIP de Windows y el APK de Android desde **Assets**; el botón verde **Code** descarga solamente el código fuente.
+**Para probar sin compilar:** abrí [la versión de prueba en GitHub](https://github.com/julianzanutti/StreamCam/releases) y seguí [EMPEZAR.md](EMPEZAR.md). Descargá el **instalador Windows (setup.exe)** y el **APK Android** desde **Assets**; el botón verde **Code** descarga solamente el código fuente.
 
 Es una **versión preliminar**, con APK de prueba. El audio con micrófono real, las sesiones largas y parte de la integración con OBS todavía requieren pruebas en equipos reales. Consultá [el estado de las pruebas](docs/V1_STATUS.md).
 

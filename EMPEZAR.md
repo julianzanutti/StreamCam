@@ -6,14 +6,14 @@ Necesitás una PC con Windows de 64 bits, un teléfono con Android 10 o posterio
 
 Abrí [Releases de StreamCam](https://github.com/julianzanutti/StreamCam/releases) y entrá a la versión preliminar más reciente. En **Assets**, descargá:
 
-- El archivo que termina en **windows-x64.zip**, para la PC.
+- El archivo que termina en **windows-x64-setup.exe**, el instalador para la PC.
 - El archivo que termina en **android-preview.apk**, para el teléfono.
 
 No descargues **Source code**: es para desarrollar. El APK es de prueba, no una versión estable de Play Store.
 
 ## 2. Preparar los dos equipos
 
-1. En Windows, extraé **todo** el ZIP a una carpeta, por ejemplo `Documentos\StreamCam`. Instalá `vc_redist.x64.exe` si Windows no tiene el runtime de Visual C++ (si ya está instalado, podés cerrar el instalador). Abrí `StreamCam.exe` desde esa carpeta. Conservá las subcarpetas y las DLL que lo acompañan.
+1. En Windows, abrí el archivo **windows-x64-setup.exe** y seguí el asistente. Instala la aplicación para tu usuario con sus dependencias, crea accesos directos y permite desinstalarla desde Aplicaciones de Windows. No necesitás instalar Visual C++ por separado. Si usás OBS, cerralo y marcá la opción de instalar la fuente StreamCam. Después abrí **StreamCam** desde el escritorio o el menú Inicio.
 2. Pasá el APK al teléfono, abrilo e instalalo. Si Android pide permiso para instalar desde esa aplicación, habilitalo para esta instalación.
 3. Abrí StreamCam en el teléfono.
 
@@ -29,7 +29,7 @@ Si preferís cable, seguí [la conexión por USB](docs/INSTALACION.md#conectar-p
 
 ## 4. Usarlo en OBS
 
-1. Cerrá OBS. En la carpeta extraída, abrí PowerShell y ejecutá:
+1. Si marcaste la opción **Instalar la fuente StreamCam para OBS** en el instalador, ya está preparada. Si no, cerrá OBS y volvé a ejecutar el instalador marcando esa opción. El plugin se compiló para OBS Studio **33.0.1 de 64 bits**. Como alternativa para el ZIP portable, abrí PowerShell en la carpeta extraída y ejecutá:
 
    ```powershell
    powershell -ExecutionPolicy Bypass -File .\obs-plugin\install.ps1

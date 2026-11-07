@@ -31,6 +31,9 @@
 #include <QCoreApplication>
 #include "../media/WebRtcReceiver.h"
 #include <QPointer>
+#include <QTemporaryDir>
+#include <QLockFile>
+#include <QDir>
 #include <cstdio>
 #include "../ipc/FramePublisher.h"
 #include "../ipc/AudioPublisher.h"
@@ -85,6 +88,15 @@ public:
         connectionHint->setWordWrap(true);
 
         connectionLayout->addWidget(state);
+        errorDetailsButton_ = new QPushButton(QStringLiteral("Ver detalle del error"), connection);
+        errorDetailsButton_->setVisible(false);
+        connect(errorDetailsButton_, &QPushButton::clicked, this, [this] {
+            QMessageBox box(QMessageBox::Warning, QStringLiteral("StreamCam · Detalle de conexión"),
+                QStringLiteral("La conexión no pudo completarse. Revisá el detalle y volvé a intentar."), QMessageBox::Ok, this);
+            box.setDetailedText(lastError_);
+            box.exec();
+        });
+        connectionLayout->addWidget(errorDetailsButton_);
         connectionLayout->addSpacing(4);
         connectionLayout->addWidget(transportLabel);
         connectionLayout->addWidget(transport);
@@ -339,6 +351,8 @@ private:
     QLabel *stateLabel_=nullptr, *hintLabel_=nullptr, *qrLabel_=nullptr;
     QComboBox *transport_=nullptr;
     QPushButton *pairButton_=nullptr, *cancelButton_=nullptr, *refreshButton_=nullptr, *revokeButton_=nullptr;
+    QPushButton *errorDetailsButton_=nullptr;
+    QString lastError_;
     QPointer<QProcess> adbProcess_;
     QPointer<QMessageBox> consentDialog_;
     bool preparing_=false, pending_=false;
@@ -380,7 +394,10 @@ private:
         activeSocket_.clear();receiver_.reset();publisher_.clear();audioPublisher_.clear();pairing_.stop();qrLabel_->clear();qrLabel_->hide();updateControls();
     }
     void connectionFailed(const QString &message) {
-        cancelConnection();stateLabel_->setText(message);
+        cancelConnection();
+        lastError_ = message;
+        stateLabel_->setText(message.size() > 180 ? message.left(177)+QStringLiteral("…") : message);
+        errorDetailsButton_->show();
     }
     void runAdb(const QString &executable,const QStringList &arguments,unsigned generation,std::function<void()> next) {
         auto *process=new QProcess(this);adbProcess_=process;
@@ -388,10 +405,16 @@ private:
         auto complete=[this,process,generation,settled,next](bool success) {
             if(*settled)return;*settled=true;
             if(adbProcess_==process)adbProcess_.clear();
-            const auto output=process->readAllStandardOutput();
+            const auto output=process->readAllStandardOutput()+process->readAllStandardError();
             process->deleteLater();
             if(generation!=connectionGeneration_)return;
             if(!success || output.contains("Error:") || output.contains("Exception")) {
+                if (output.contains("unauthorized")) {
+                    connectionFailed(QStringLiteral("El teléfono no autorizó la depuración USB. Desbloquealo y aceptá el permiso de esta PC."));return;
+                }
+                if (output.contains("more than one device")) {
+                    connectionFailed(QStringLiteral("Hay más de un dispositivo ADB. Desconectá los otros teléfonos o emuladores y reintentá."));return;
+                }
                 connectionFailed(QStringLiteral("No se pudo conectar por USB. Verificá el cable, conectá un solo teléfono y aceptá la depuración USB en Android."));return;
             }
             next();
@@ -403,6 +426,7 @@ private:
     }
     void beginConnection() {
         if(preparing_ || activeSocket_)return;
+        errorDetailsButton_->hide();lastError_.clear();
         cancelConnection();preparing_=true;updateControls();
         stateLabel_->setText(QStringLiteral("Preparando conexión segura…"));
         pairingAddress_=transport_->currentData().toString();
@@ -465,13 +489,55 @@ private:
 } // namespace
 
 int main(int argc, char *argv[]) {
-    std::fprintf(stderr, "desktop: QApplication\n"); std::fflush(stderr);
     QApplication app(argc, argv);
-    std::fprintf(stderr, "desktop: MainWindow\n"); std::fflush(stderr);
     app.setApplicationName(QStringLiteral("StreamCam"));
     app.setOrganizationName(QStringLiteral("StreamCam"));
-    MainWindow window;
-    std::fprintf(stderr, "desktop: show\n"); std::fflush(stderr);
-    window.show();
-    return app.exec();
+    app.setApplicationVersion(QStringLiteral("0.2.0-preview"));
+    const auto directory = QCoreApplication::applicationDirPath();
+    const bool check = app.arguments().contains(QStringLiteral("--check-install"));
+    const auto report = [check](const QString &message) {
+        if (check) { std::fputs(message.toUtf8().constData(), stderr); std::fputs("\n", stderr); }
+        else QMessageBox::critical(nullptr, QStringLiteral("StreamCam · No se pudo iniciar"), message);
+        return 1;
+    };
+    if (check || QDir(directory+QStringLiteral("/runtime")).exists()) {
+        for (const auto &relative : {"create-identity.ps1", "runtime/powershell/pwsh.exe",
+                "runtime/powershell/System.Management.Automation.dll", "runtime/adb/adb.exe",
+                "runtime/adb/AdbWinApi.dll", "runtime/adb/AdbWinUsbApi.dll", "platforms/qwindows.dll",
+                "vcruntime140.dll", "vcruntime140_1.dll", "msvcp140.dll"}) {
+            if (!QFileInfo::exists(directory+QStringLiteral("/")+QString::fromLatin1(relative)))
+                return report(QStringLiteral("Falta un componente: %1. Volvé a ejecutar el instalador de StreamCam.").arg(QString::fromLatin1(relative)));
+        }
+    }
+    if (check) {
+        try {
+            QTemporaryDir temporary;
+            if (!temporary.isValid()) return report(QStringLiteral("No se pudo crear la carpeta temporal de prueba."));
+            const auto script = directory+QStringLiteral("/create-identity.ps1");
+            const auto first = PcIdentity::load(script, temporary.path());
+            if (PcIdentity::load(script, temporary.path()).pin != first.pin)
+                return report(QStringLiteral("Falló la recarga de identidad."));
+            QProcess adb;
+            adb.start(directory+QStringLiteral("/runtime/adb/adb.exe"), {QStringLiteral("version")});
+            if (!adb.waitForFinished(10000) || adb.exitStatus()!=QProcess::NormalExit || adb.exitCode()!=0)
+                return report(QStringLiteral("No se pudo iniciar el componente USB."));
+            std::puts("PASS: installed components, protected identity reload and ADB startup.");
+            return 0;
+        } catch (const std::exception &) { return report(QStringLiteral("Falló la comprobación de identidad del paquete.")); }
+    }
+    const auto dataDirectory = QStandardPaths::writableLocation(QStandardPaths::AppLocalDataLocation);
+    if (dataDirectory.isEmpty() || !QDir().mkpath(dataDirectory))
+        return report(QStringLiteral("No se pudo abrir la carpeta local de datos de StreamCam."));
+    QLockFile instance(dataDirectory+QStringLiteral("/instance.lock"));
+    if (!instance.tryLock(0)) {
+        QMessageBox::information(nullptr, QStringLiteral("StreamCam"), QStringLiteral("StreamCam ya está abierto o su carpeta de datos está ocupada. Revisá la barra de tareas y usá una sola ventana."));
+        return 0;
+    }
+    try {
+        MainWindow window;
+        window.show();
+        return app.exec();
+    } catch (const std::exception &) {
+        return report(QStringLiteral("No se pudo iniciar StreamCam. Cerrá la aplicación y volvé a ejecutar el instalador. Si persiste, reportá el problema en GitHub."));
+    }
 }
