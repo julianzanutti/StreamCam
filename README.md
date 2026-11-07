@@ -1,45 +1,44 @@
 # StreamCam
 
-StreamCam conecta el micrófono y la cámara de un teléfono Android con OBS Studio en Windows. La transmisión puede ser **solo video**, **solo audio** o **audio y video**. La conexión es directa por USB/ADB o por Wi‑Fi en la red local; no usa cuentas ni servidores de StreamCam.
+Usá la cámara y el micrófono de tu teléfono Android en OBS Studio para Windows, por cable USB o por la red Wi‑Fi local.
 
-## Requisitos
+## Descargar e instalar
 
-- Android 10 o posterior, con cámara y/o micrófono según el modo elegido.
-- Windows de 64 bits y OBS Studio.
-- Para USB: cable que transfiera datos y depuración USB activada y autorizada.
-- Para Wi‑Fi: ambos equipos en la misma red local. Algunas redes de invitados aíslan los dispositivos.
+> **¿Solo querés instalar StreamCam? No pulses el botón verde `Code`: descarga el código para desarrolladores.** Usá uno de estos dos botones:
 
-## Empezar
+[1. Instalador para Windows](https://github.com/julianzanutti/StreamCam/releases/download/v0.2.2-preview/StreamCam-0.2.2-preview-windows-x64-setup.exe) · [2. APK para Android](https://github.com/julianzanutti/StreamCam/releases/download/v0.2.2-preview/StreamCam-0.2.2-preview-android-preview.apk) · [3. Instrucciones paso a paso](EMPEZAR.md)
 
-**Para probar sin compilar:** abrí [la versión de prueba en GitHub](https://github.com/julianzanutti/StreamCam/releases) y seguí [EMPEZAR.md](EMPEZAR.md). Descargá el **instalador Windows (setup.exe)** y el **APK Android** desde **Assets**; el botón verde **Code** descarga solamente el código fuente.
+Es una **versión preliminar**. Android muestra una advertencia porque el APK es de prueba y no está publicado en Play Store. Windows también puede mostrar un aviso por falta de firma del editor. No desactives Play Protect ni Defender. [Ver los detalles de seguridad](SECURITY.md).
 
-Es una **versión preliminar**, con APK de prueba. El audio con micrófono real, las sesiones largas y parte de la integración con OBS todavía requieren pruebas en equipos reales. Consultá [el estado de las pruebas](docs/V1_STATUS.md).
+## Así se ve
 
-Consulta [Instalación y uso](docs/INSTALACION.md) para instalar el APK, preparar Windows/OBS, conectar por USB o Wi‑Fi y configurar audio. Si compilás desde el código, seguí [BUILDING.md](BUILDING.md).
+### Conectar el teléfono por USB o Wi‑Fi
 
-1. Abrí StreamCam en Android y StreamCam para Windows.
-2. Elegí USB o Wi‑Fi en Windows y conectá el teléfono.
-3. En Android elegí **Solo video**, **Solo audio** o **Audio + video**. La app pide permiso de micrófono solo si el modo lo necesita.
-4. Aceptá los permisos y tocá **Iniciar**. En OBS agrega **Fuentes → + → StreamCam**. Para otras aplicaciones, iniciá **OBS Virtual Camera**.
+![StreamCam para Windows, pantalla de conexión USB](docs/screenshots/windows-conexion.jpg)
+
+### Ajustar la voz antes de enviarla a OBS
+
+![StreamCam para Windows, ganancia, compresor y puerta de ruido](docs/screenshots/windows-voz.jpg)
+
+La pantalla de voz muestra el trabajo de V2 en desarrollo; esos controles todavía no están en los instaladores de la preview 0.2.2 que se descargan arriba.
+
+## Empezar en tres pasos
+
+1. Instalá StreamCam en Windows con el botón de arriba y abrila.
+2. Instalá el APK en Android. Con **USB**, conectá el cable de datos y aceptá la vinculación que muestran ambos equipos; **no hay que escanear un QR**. Con **Wi‑Fi**, elegí esa conexión en Windows y escaneá el QR desde Android.
+3. Elegí **Solo video**, **Solo audio** o **Audio + video** y tocá **Iniciar**. En OBS agregá **Fuentes → + → StreamCam**.
+
+La [guía rápida con más detalles](EMPEZAR.md) incluye OBS y solución de errores. Para videollamadas, iniciá **OBS Virtual Camera** desde OBS y elegí esa cámara en la aplicación.
 
 ## Qué incluye
 
-- Cámara frontal/trasera, perfiles SD/HD/Full HD y bitrate configurable.
-- Video H.264 por hardware. Audio WebRTC por Wi‑Fi y PCM 48 kHz por USB.
-- Emparejamiento protegido: QR efímero y TLS fijado a la identidad de Windows por Wi‑Fi; autenticación del dispositivo por USB.
-- Servicio Android en primer plano con notificación para detener la captura.
-- Fuente OBS nativa con video y audio.
+- Cámara frontal o trasera, perfiles SD, HD y Full HD.
+- H.264 por hardware; audio USB y Wi‑Fi.
+- En la V2 en desarrollo: controles Windows de ganancia, compresor y puerta de ruido; selección de entradas de micrófono y cancelación de eco en Android cuando el teléfono las admite. Aún falta validar estos cambios con micrófonos reales.
+- Conexión local autenticada. No usa cuentas, no guarda audio o video y no transmite antes de la confirmación visible.
 
-## Ayuda
+El procesamiento depende de las funciones que expone cada teléfono. La puerta de ruido no reemplaza un supresor de ruido; las pruebas con micrófono real, sincronía y sesiones largas siguen pendientes. Consultá el [estado de pruebas](docs/V1_STATUS.md).
 
-Los problemas habituales y sus soluciones están en [Solución de problemas](docs/SOLUCION_DE_PROBLEMAS.md). Revisa también [prueba de integración](docs/PRUEBA_INTEGRACION.md), [conexión USB](docs/USB_ADB.md) y [seguridad](SECURITY.md).
+## Para desarrolladores
 
-## Compilar desde código
-
-Consulta [BUILDING.md](BUILDING.md), [Android](android/README.md) y [Windows](desktop/README.md). No se incluyen SDKs de terceros, claves privadas, datos del dispositivo ni APKs en el historial Git.
-
-## Privacidad
-
-El audio y el video se envían únicamente a la PC vinculada mientras la transmisión está activa. El audio está desactivado en el modo Solo video. No hay grabación ni almacenamiento de medios en StreamCam. Las claves privadas se generan localmente; los QR caducan.
-
-Licencia GPL-3.0-or-later. Consulta [avisos de terceros](docs/THIRD_PARTY.md), [seguridad](SECURITY.md) y [contribución](CONTRIBUTING.md).
+El código fuente está disponible en el botón **Code** de GitHub o para descarga directa en [ZIP](https://github.com/julianzanutti/StreamCam/archive/refs/heads/main.zip). Para compilar, seguí [BUILDING.md](BUILDING.md). La licencia es [GPL-3.0-or-later](LICENSE).
