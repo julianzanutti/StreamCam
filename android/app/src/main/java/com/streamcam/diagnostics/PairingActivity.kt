@@ -70,6 +70,7 @@ class PairingActivity : AppCompatActivity() {
         disconnectPc.setOnClickListener { disconnect(); showMessage("PC desconectada.") }
         scan.setOnClickListener {
             IntentIntegrator(this).setDesiredBarcodeFormats(IntentIntegrator.QR_CODE)
+                .setCaptureActivity(QrCaptureActivity::class.java)
                 .setPrompt("Apuntá al QR de StreamCam en tu PC").setBeepEnabled(false)
                 .setBarcodeImageEnabled(false).setOrientationLocked(false).initiateScan()
         }
