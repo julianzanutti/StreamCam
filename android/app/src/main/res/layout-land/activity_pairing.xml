@@ -1,0 +1,46 @@
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android" xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent" android:layout_height="match_parent" android:fillViewport="true" android:background="#F8FAFD" android:clipToPadding="false" android:fitsSystemWindows="true">
+    <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" android:padding="20dp">
+        <LinearLayout android:layout_width="match_parent" android:layout_height="48dp" android:gravity="center_vertical" android:orientation="horizontal">
+            <ImageView android:layout_width="28dp" android:layout_height="28dp" android:src="@drawable/ic_camera" android:importantForAccessibility="no"/>
+            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginStart="10dp" android:text="StreamCam" android:textSize="24sp" android:fontFamily="sans-serif-medium" android:textColor="#1F1F1F"/>
+        </LinearLayout>
+        <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="4dp" android:layout_marginBottom="20dp" android:text="Tu cámara Android, en tu PC." android:textColor="#5F6368" android:textSize="15sp"/>
+        <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal" android:baselineAligned="false">
+        <com.google.android.material.card.MaterialCardView android:layout_width="0dp" android:layout_weight="1" android:layout_height="wrap_content" app:cardCornerRadius="24dp" app:cardElevation="0dp" app:cardBackgroundColor="#FFFFFF" app:strokeWidth="1dp" app:strokeColor="#E1E5EB">
+            <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:padding="20dp" android:orientation="vertical">
+                <TextView android:id="@+id/connection_badge" android:layout_width="wrap_content" android:layout_height="wrap_content" android:background="@drawable/status_pill" android:text="Sin conectar" android:textColor="#444746" android:textSize="12sp" android:fontFamily="sans-serif-medium"/>
+                <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="16dp" android:text="Conexión" android:textSize="22sp" android:fontFamily="sans-serif-medium" android:textColor="#1F1F1F"/>
+                <TextView android:id="@+id/pairing_status" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="8dp" android:layout_marginBottom="16dp" android:text="Elegí USB o Wi-Fi en StreamCam para Windows." android:textSize="14sp" android:lineSpacingExtra="2dp" android:textColor="#5F6368" android:accessibilityLiveRegion="polite"/>
+                <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:text="Por USB" android:textSize="14sp" android:fontFamily="sans-serif-medium" android:textColor="#1F1F1F"/>
+                <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="4dp" android:layout_marginBottom="14dp" android:text="Conectá el cable y pulsá Conectar USB en Windows. No hace falta escanear un código." android:textSize="13sp" android:lineSpacingExtra="2dp" android:textColor="#5F6368"/>
+                <com.google.android.material.button.MaterialButton android:id="@+id/scan_qr" style="@style/StreamCam.Outline" android:text="Conectar por Wi-Fi" app:icon="@drawable/ic_qr" app:iconGravity="textStart"/>
+                <com.google.android.material.button.MaterialButton android:id="@+id/connect_saved" style="@style/StreamCam.TextAction" android:text="Volver a conectar"/>
+                <com.google.android.material.button.MaterialButton android:id="@+id/disconnect_pc" style="@style/StreamCam.TextAction" android:text="Desconectar PC" android:enabled="false"/>
+            </LinearLayout>
+        </com.google.android.material.card.MaterialCardView>
+        <Space android:layout_width="16dp" android:layout_height="1dp"/>
+        <com.google.android.material.card.MaterialCardView android:layout_width="0dp" android:layout_weight="1.15" android:layout_height="wrap_content" app:cardCornerRadius="24dp" app:cardElevation="0dp" app:cardBackgroundColor="#EAF1FB" app:strokeWidth="0dp">
+            <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:padding="20dp" android:orientation="vertical">
+                <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginBottom="6dp" android:text="Tu cámara" android:textSize="22sp" android:fontFamily="sans-serif-medium" android:textColor="#1F1F1F"/>
+                <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginBottom="16dp" android:text="Elegí transmitir solo video, solo audio o ambos. El micrófono se usa únicamente si lo seleccionás." android:textSize="13sp" android:lineSpacingExtra="2dp" android:textColor="#5F6368"/>
+                <TextView style="@style/StreamCam.FieldLabel" android:text="Qué transmitir" android:labelFor="@id/capture_mode"/>
+                <Spinner android:id="@+id/capture_mode" style="@style/StreamCam.Field"/>
+                <TextView style="@style/StreamCam.FieldLabel" android:text="Lente" android:labelFor="@id/camera_choice"/>
+                <Spinner android:id="@+id/camera_choice" style="@style/StreamCam.Field"/>
+                <TextView style="@style/StreamCam.FieldLabel" android:text="Resolución y cuadros por segundo" android:labelFor="@id/quality_choice"/>
+                <Spinner android:id="@+id/quality_choice" style="@style/StreamCam.Field"/>
+                <TextView style="@style/StreamCam.FieldLabel" android:text="Calidad de imagen · bitrate máximo" android:labelFor="@id/bitrate_choice"/>
+                <Spinner android:id="@+id/bitrate_choice" style="@style/StreamCam.Field"/>
+                <com.google.android.material.button.MaterialButton android:id="@+id/start_video" style="@style/StreamCam.Action" android:text="Iniciar transmisión" android:enabled="false"/>
+                <com.google.android.material.button.MaterialButton android:id="@+id/stop_video" style="@style/StreamCam.TextAction" android:text="Detener transmisión" android:enabled="false"/>
+                <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="4dp" android:text="Podés bloquear la pantalla mientras transmitís. Detené desde la app o la notificación." android:textColor="#5F6368" android:textSize="12sp" android:lineSpacingExtra="2dp"/>
+            </LinearLayout>
+        </com.google.android.material.card.MaterialCardView>
+        </LinearLayout>
+        <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="12dp" android:orientation="horizontal">
+            <com.google.android.material.button.MaterialButton android:id="@+id/diagnostics" style="@style/StreamCam.TextAction" android:layout_width="0dp" android:layout_weight="1" android:text="Diagnóstico"/>
+            <com.google.android.material.button.MaterialButton android:id="@+id/forget_saved" style="@style/StreamCam.TextAction" android:layout_width="0dp" android:layout_weight="1" android:text="Olvidar PC" android:textColor="#B3261E"/>
+        </LinearLayout>
+    </LinearLayout>
+</ScrollView>

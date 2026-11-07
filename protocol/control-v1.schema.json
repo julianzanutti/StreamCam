@@ -1,0 +1,63 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://streamcam.invalid/protocol/control-v1.schema.json",
+  "title": "StreamCam authenticated control channel v1",
+  "description": "Messages exchanged only after the user has paired and the WebRTC data channel is authenticated. Video is carried by the WebRTC media track, never in these JSON messages.",
+  "oneOf": [
+    { "$ref": "#/$defs/cameraStart" },
+    { "$ref": "#/$defs/cameraStop" },
+    { "$ref": "#/$defs/cameraSetControls" },
+    { "$ref": "#/$defs/deviceCapabilities" },
+    { "$ref": "#/$defs/deviceStatus" },
+    { "$ref": "#/$defs/protocolError" }
+  ],
+  "$defs": {
+    "envelope": {
+      "type": "object",
+      "required": ["protocol_version", "sequence", "type", "payload"],
+      "properties": {
+        "protocol_version": { "const": 1 },
+        "sequence": { "type": "integer", "minimum": 1 },
+        "type": { "type": "string" },
+        "payload": { "type": "object" }
+      },
+      "additionalProperties": false
+    },
+    "cameraStart": {
+      "allOf": [
+        { "$ref": "#/$defs/envelope" },
+        { "properties": { "type": { "const": "camera.start" }, "payload": { "type": "object", "required": ["camera_id", "width", "height", "fps"], "properties": { "camera_id": { "type": "string", "minLength": 1, "maxLength": 64 }, "width": { "enum": [640, 960, 1280, 1920] }, "height": { "enum": [480, 540, 720, 1080] }, "fps": { "enum": [24, 30] } }, "additionalProperties": false } } }
+      ]
+    },
+    "cameraStop": {
+      "allOf": [
+        { "$ref": "#/$defs/envelope" },
+        { "properties": { "type": { "const": "camera.stop" }, "payload": { "type": "object", "properties": {}, "additionalProperties": false } } }
+      ]
+    },
+    "cameraSetControls": {
+      "allOf": [
+        { "$ref": "#/$defs/envelope" },
+        { "properties": { "type": { "const": "camera.set_controls" }, "payload": { "type": "object", "minProperties": 1, "properties": { "zoom_ratio": { "type": "number", "minimum": 1, "maximum": 20 }, "exposure_compensation": { "type": "integer", "minimum": -20, "maximum": 20 }, "focus_mode": { "enum": ["continuous_video", "continuous_picture", "auto", "locked"] }, "focus_distance_diopters": { "type": "number", "minimum": 0, "maximum": 100 }, "iso": { "type": "integer", "minimum": 25, "maximum": 102400 }, "exposure_time_ns": { "type": "integer", "minimum": 1000, "maximum": 1000000000 }, "video_stabilization": { "type": "boolean" } }, "additionalProperties": false } } }
+      ]
+    },
+    "deviceCapabilities": {
+      "allOf": [
+        { "$ref": "#/$defs/envelope" },
+        { "properties": { "type": { "const": "device.capabilities" }, "payload": { "type": "object", "required": ["cameras"], "properties": { "cameras": { "type": "array", "maxItems": 16, "items": { "type": "object", "required": ["camera_id", "facing", "sizes", "fps_ranges"], "properties": { "camera_id": { "type": "string", "minLength": 1, "maxLength": 64 }, "facing": { "enum": ["front", "back", "external", "unknown"] }, "sizes": { "type": "array", "maxItems": 64, "items": { "type": "object", "required": ["width", "height"], "properties": { "width": { "type": "integer", "minimum": 1, "maximum": 16384 }, "height": { "type": "integer", "minimum": 1, "maximum": 16384 } }, "additionalProperties": false } }, "fps_ranges": { "type": "array", "maxItems": 32, "items": { "type": "array", "prefixItems": [{ "type": "integer", "minimum": 1, "maximum": 240 }, { "type": "integer", "minimum": 1, "maximum": 240 }], "minItems": 2, "maxItems": 2 } }, "manual_sensor": { "type": "boolean" }, "hardware_h264": { "type": "boolean" } }, "additionalProperties": false } } }, "additionalProperties": false } } }
+      ]
+    },
+    "deviceStatus": {
+      "allOf": [
+        { "$ref": "#/$defs/envelope" },
+        { "properties": { "type": { "const": "device.status" }, "payload": { "type": "object", "required": ["state"], "properties": { "state": { "enum": ["idle", "starting", "streaming", "stopping", "error"] }, "camera_id": { "type": "string", "maxLength": 64 }, "width": { "type": "integer", "minimum": 1, "maximum": 16384 }, "height": { "type": "integer", "minimum": 1, "maximum": 16384 }, "fps": { "type": "number", "minimum": 0, "maximum": 240 }, "thermal_status": { "enum": ["nominal", "fair", "serious", "critical", "unknown"] }, "message": { "type": "string", "maxLength": 256 } }, "additionalProperties": false } } }
+      ]
+    },
+    "protocolError": {
+      "allOf": [
+        { "$ref": "#/$defs/envelope" },
+        { "properties": { "type": { "const": "protocol.error" }, "payload": { "type": "object", "required": ["code"], "properties": { "code": { "enum": ["unsupported_version", "invalid_message", "unsupported_capability", "camera_busy", "camera_unavailable", "internal_error"] }, "message": { "type": "string", "maxLength": 256 } }, "additionalProperties": false } } }
+      ]
+    }
+  }
+}

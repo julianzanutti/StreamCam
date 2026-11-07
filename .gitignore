@@ -1,0 +1,47 @@
+# Android / Gradle
+.android-sdk/
+.android-user/
+.tooling/
+.gradle/
+.gradle-user/
+**/build/
+local.properties
+*.iml
+.idea/
+*.apk
+*.aab
+
+# Windows / native builds
+out/
+cmake-build-*/
+desktop/out/
+CMakeUserPresets.json
+*.user
+*.suo
+*.pdb
+*.obj
+*.dll
+*.exe
+
+# Local state
+dist/
+.DS_Store
+Thumbs.db
+
+# Private development notes / device diagnostics
+PROJECT_CONTEXT.md
+PLAN_CAMARA_STREAM.md
+aqtinstall.log
+docs/MOTO_G32_DIAGNOSTICO_*.md
+*.log
+*.jks
+*.keystore
+*.p12
+*.pfx
+*.key
+*.pem
+.env
+.env.*
+!.env.example
+*devices.json
+*identity.json
