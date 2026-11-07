@@ -4,7 +4,7 @@ Usá la cámara y el micrófono de tu teléfono Android en OBS Studio para Windo
 
 ## Descargar e instalar
 
-> **¿Solo querés instalar StreamCam? No pulses el botón verde `Code`: descarga el código para desarrolladores.** Usá uno de estos dos botones:
+> **¿Solo querés instalar StreamCam? No pulses el botón verde `Code`: descarga el código para desarrolladores.** Elegí qué necesitás:
 
 [1. Instalador para Windows](https://github.com/julianzanutti/StreamCam/releases/download/v0.2.2-preview/StreamCam-0.2.2-preview-windows-x64-setup.exe) · [2. APK para Android](https://github.com/julianzanutti/StreamCam/releases/download/v0.2.2-preview/StreamCam-0.2.2-preview-android-preview.apk) · [3. Instrucciones paso a paso](EMPEZAR.md)
 
