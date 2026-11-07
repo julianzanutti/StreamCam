@@ -20,7 +20,7 @@ Con OBS cerrado, instalar el plugin con el script incluido. Abrir OBS y agregar 
 
 Para otras aplicaciones, pulsar Iniciar cámara virtual en OBS y seleccionar OBS Virtual Camera como cámara de entrada. No hace falta iniciar emisión ni grabación.
 
-Para una llamada, selecciona StreamCam como micrófono por separado; OBS Virtual Camera transmite video y el audio se elige como dispositivo de entrada de micrófono en la app de llamada.
+Para una llamada, seleccioná OBS Virtual Camera como cámara y el micrófono habitual de tu PC como entrada de audio. StreamCam entrega audio a la fuente de OBS, pero no instala un micrófono virtual de Windows.
 
 ## Registrar el resultado
 

@@ -2,21 +2,21 @@
 
 ## Paquetes descargados
 
-Descargá el APK de Android y el ZIP completo de StreamCam para Windows desde la sección **Releases** del repositorio. Conservá el ZIP completo: contiene la aplicación, las herramientas ADB necesarias para USB y los archivos de identidad local. No muevas archivos individuales fuera de sus carpetas.
+Descargá `StreamCam-preview.apk` para Android y el ZIP completo para Windows desde la sección **Releases**. El APK de esta compilación es de prueba. Conservá el ZIP completo: incluye `StreamCam.exe`, las DLL de Qt, PowerShell y ADB necesarios para funcionar. La identidad de esta PC se crea al conectar y se guarda en la carpeta local de datos de Windows; nunca viene dentro de la descarga. No muevas archivos individuales fuera de sus carpetas.
 
 ### Android
 
-1. Transferí `StreamCam.apk` al teléfono y abrilo. Android puede pedir habilitar **Instalar apps desconocidas** para la aplicación usada para abrirlo; autorizala solo para esta instalación.
+1. Transferí `StreamCam-preview.apk` al teléfono y abrilo. Android puede pedir habilitar **Instalar apps desconocidas** para la aplicación usada para abrirlo; autorizala solo para esta instalación.
 2. Abrí StreamCam. No hace falta conceder cámara o micrófono al inicio: se solicitan al tocar Iniciar, según el modo seleccionado.
 3. Si Android Play Protect muestra un aviso por instalación directa, verificá que el APK provenga de la release oficial de este repositorio antes de continuar.
 
 ### Windows y OBS
 
 1. Extraé el ZIP entero a una carpeta donde tengas permiso de escritura, por ejemplo `Documentos\StreamCam`. No ejecutes los programas desde la vista previa del ZIP.
-2. Cerrá OBS Studio e iniciá `StreamCam.exe`.
+2. Si Windows no tiene el runtime de Visual C++, instalá `vc_redist.x64.exe`, incluido en el ZIP. Cerrá OBS Studio e iniciá `StreamCam.exe`.
 3. Para instalar la fuente de OBS, cerrá OBS y ejecutá `obs-plugin\install.ps1` con PowerShell. Se instala solo para tu usuario, sin permisos de administrador. Si la directiva local bloquea el script, abre PowerShell en la carpeta extraída y ejecuta `powershell -ExecutionPolicy Bypass -File .\obs-plugin\install.ps1`. Revisá la ruta que informa y volvé a abrir OBS.
 4. En OBS crea una escena o selecciona una existente. Agregá **Fuentes → + → StreamCam**. En el mezclador habilitá y subí el volumen de StreamCam.
-5. Para Google Meet, Zoom u otra app, inicia **Iniciar cámara virtual** desde OBS y selecciona **OBS Virtual Camera** como cámara y **StreamCam** como micrófono si quieres audio.
+5. Para Google Meet, Zoom u otra app, inicia **Iniciar cámara virtual** desde OBS y selecciona **OBS Virtual Camera** como cámara. StreamCam entrega audio a OBS, pero no instala un micrófono virtual de Windows; para la llamada usá el micrófono habitual de tu PC.
 
 ## Conectar por USB
 

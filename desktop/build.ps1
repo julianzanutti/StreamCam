@@ -18,6 +18,10 @@ if ($LASTEXITCODE -ne 0) { throw 'Falló la configuración CMake.' }
 & $cmake --build $buildDir --config $Configuration
 if ($LASTEXITCODE -ne 0) { throw 'Falló la compilación Windows.' }
 $exe = Join-Path $buildDir "$Configuration\StreamCamDesktop.exe"
-& (Join-Path $QtPath 'bin\windeployqt.exe') "--$($Configuration.ToLowerInvariant())" --no-translations $exe
-if ($LASTEXITCODE -ne 0) { throw 'Falló el empaquetado Qt.' }
+$previousVcInstallDir = $env:VCINSTALLDIR
+try {
+    $env:VCINSTALLDIR = Join-Path $vsInstall 'VC'
+    & (Join-Path $QtPath 'bin\windeployqt.exe') "--$($Configuration.ToLowerInvariant())" --no-translations --compiler-runtime $exe
+    if ($LASTEXITCODE -ne 0) { throw 'Falló el empaquetado Qt.' }
+} finally { $env:VCINSTALLDIR = $previousVcInstallDir }
 Write-Output "Aplicación: $exe"

@@ -30,7 +30,7 @@
 - Acepta el permiso de micrófono. En Android, ve a **Ajustes → Apps → StreamCam → Permisos → Micrófono** y permite su uso mientras se usa la app.
 - Cierra grabadoras, llamadas, asistentes de voz u otras aplicaciones que estén usando el micrófono; luego detén e inicia la transmisión.
 - En OBS comprueba el mezclador: que la fuente **StreamCam** no esté silenciada, que el volumen no esté en cero y que no tenga filtros que eliminen audio. En propiedades avanzadas confirma el monitoreo/ruteo requerido por tu configuración.
-- En OBS Virtual Camera, la imagen sale como cámara; selecciona **StreamCam** por separado como micrófono de la videollamada. OBS Virtual Camera no transporta por sí sola el audio.
+- En OBS Virtual Camera, la imagen sale como cámara; usá el micrófono habitual de la PC en la videollamada. StreamCam entrega audio a OBS, pero no instala un micrófono virtual de Windows.
 - USB usa PCM mono de 48 kHz; Wi‑Fi usa audio WebRTC/Opus. Si USB se entrecorta, cierra otras apps de audio y vuelve a conectar el cable.
 
 ## No aparece la fuente StreamCam en OBS
@@ -45,6 +45,12 @@
 - Extrae el ZIP en una carpeta normal y vuelve a ejecutar `StreamCam.exe`; no lo ejecutes dentro del ZIP.
 - Si Windows SmartScreen bloquea el programa, revisa que se haya descargado desde la release oficial y su hash publicado. No desactives el antivirus.
 - Si falta una DLL o el plugin no carga, reextrae el paquete completo. No descargues DLLs sueltas de sitios externos.
+
+## Windows no puede preparar la identidad de esta PC
+
+- Usa el ZIP completo y extrae todos sus archivos a una carpeta normal; no ejecutes solo `StreamCam.exe` ni lo abras desde la vista previa del ZIP.
+- La identidad se crea al conectar y se guarda en los datos locales de tu usuario de Windows. No copies una identidad desde otra PC ni borres esos archivos mientras haya teléfonos vinculados.
+- Si el mensaje menciona PowerShell o acceso a la carpeta, reinicia StreamCam y verifica que tu usuario pueda escribir en `%LOCALAPPDATA%\StreamCam\StreamCam`. Si sigue fallando, anota el detalle que aparece en la app y compártelo sin enviar archivos de identidad.
 
 ## Reinicio seguro
 

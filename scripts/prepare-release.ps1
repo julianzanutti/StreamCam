@@ -2,16 +2,27 @@ param([string]$Version='0.1.0-preview')
 $ErrorActionPreference='Stop'
 if ($Version -notmatch '^[0-9]+\.[0-9]+\.[0-9]+(?:-[a-zA-Z0-9.-]+)?$') {throw 'Versión inválida.'}
 $projectRoot=Split-Path $PSScriptRoot -Parent
-$python=Get-Command python -ErrorAction Stop
-& $python.Source (Join-Path $PSScriptRoot 'audit-public.py')
+& (Join-Path $PSScriptRoot 'audit-public.ps1')
 if ($LASTEXITCODE -ne 0) {throw 'La auditoría de fuente no pasó.'}
 $package=Join-Path $projectRoot 'dist\StreamCam-preview'
 if (!(Test-Path -LiteralPath (Join-Path $package 'SHA256SUMS.txt'))) {throw 'Ejecutar desktop/package.ps1 primero.'}
+$manifest=Join-Path $package 'SHA256SUMS.txt'
+foreach ($line in Get-Content -LiteralPath $manifest) {
+    if ($line -notmatch '^([0-9a-fA-F]{64})  (.+)$') { throw "Línea inválida en SHA256SUMS.txt: $line" }
+    $file=Join-Path $package $Matches[2]
+    if (!(Test-Path -LiteralPath $file -PathType Leaf)) { throw "Falta un archivo del paquete: $($Matches[2])" }
+    if ((Get-FileHash -LiteralPath $file -Algorithm SHA256).Hash -ne $Matches[1]) { throw "Hash incorrecto: $($Matches[2]). Volvé a ejecutar desktop/package.ps1." }
+}
+$required=@('StreamCam.exe','create-identity.ps1','vc_redist.x64.exe','EMPEZAR.txt','obs-plugin/streamcam-source.dll','obs-plugin/install.ps1','runtime/powershell/pwsh.exe','runtime/adb/adb.exe','android/StreamCam-preview.apk')
+foreach ($relative in $required) {
+    if (!(Test-Path -LiteralPath (Join-Path $package $relative) -PathType Leaf)) { throw "El paquete está incompleto: falta $relative. Volvé a ejecutar desktop/package.ps1." }
+}
 $output=Join-Path $projectRoot "dist\release-$Version"
+if (Test-Path -LiteralPath $output) { Remove-Item -LiteralPath $output -Recurse -Force }
 New-Item -ItemType Directory -Force $output | Out-Null
 $windows=Join-Path $output "StreamCam-$Version-windows-x64.zip"
 Compress-Archive -Path (Join-Path $package '*') -DestinationPath $windows -Force
-Copy-Item -LiteralPath (Join-Path $package 'android\StreamCam-debug.apk') -Destination (Join-Path $output "StreamCam-$Version-android-debug.apk") -Force
+Copy-Item -LiteralPath (Join-Path $package 'android\StreamCam-preview.apk') -Destination (Join-Path $output "StreamCam-$Version-android-preview.apk") -Force
 Copy-Item -LiteralPath (Join-Path $projectRoot 'LICENSE') -Destination $output -Force
 Get-ChildItem -LiteralPath $output -File | Where-Object Name -NE 'SHA256SUMS.txt' | ForEach-Object {
     "$((Get-FileHash -LiteralPath $_.FullName -Algorithm SHA256).Hash.ToLowerInvariant())  $($_.Name)"

@@ -16,7 +16,10 @@ Descargar el SDK nativo de la [release fijada de libwebrtc](https://github.com/c
 
 ```powershell
 ./desktop/build.ps1 -QtPath 'C:/Qt/6.8.3/msvc2022_64'
+./desktop/package.ps1
 ```
+
+El empaquetado deja `dist/StreamCam-preview.apk` y `dist/StreamCam-Windows-x64-preview.zip`. También crea `dist/StreamCam-preview/` descomprimido. `StreamCam.exe` debe ejecutarse desde esa carpeta porque usa las DLL y el runtime que están a su lado; para compartirlo, usa el ZIP completo.
 
 Para la identidad TLS, el paquete usa PowerShell 7 portable; un build de desarrollo puede usar `pwsh` desde PATH. Para USB se necesita Android Platform Tools (ADB). No se guardan SDKs ni runtimes en Git.
 
@@ -38,4 +41,4 @@ Para pruebas OBS, configurar `OBS_STUDIO_DIR` con la carpeta de instalación. La
 
 ## Preparar una publicación
 
-Ejecutar `python scripts/audit-public.py` antes de generar la fuente pública. Los diagnósticos y las notas locales están ignorados. Las releases deben incluir licencia y avisos de todos los componentes, APK firmado por el mantenedor, binarios Windows, plugin y hashes SHA-256. Nunca empaquetar identidades, dispositivos confiables, claves de firma o logs. Publicar únicamente después de completar la matriz de aceptación física.
+Ejecutar `python scripts/audit-public.py` (o `scripts/audit-public.ps1` en Windows) antes de generar la fuente pública. `scripts/prepare-release.ps1` ejecuta la auditoría PowerShell, valida los hashes y los archivos necesarios y genera un ZIP Windows completo más el APK de prueba. Los diagnósticos y las notas locales están ignorados. Las releases estables deben incluir licencia y avisos de todos los componentes, APK firmado por el mantenedor, binarios Windows, plugin y hashes SHA-256. Nunca empaquetar identidades, dispositivos confiables, claves de firma o logs. Publicar únicamente después de completar la matriz de aceptación física.

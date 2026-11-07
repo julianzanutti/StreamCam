@@ -7,8 +7,10 @@ $required = @(
     (Join-Path $release 'create-identity.ps1'),
     (Join-Path $projectRoot 'android\app\build\outputs\apk\debug\app-debug.apk'),
     (Join-Path $projectRoot 'obs-plugin\out\Release\streamcam-source.dll')
+    (Join-Path $release 'vc_redist.x64.exe')
 )
 foreach ($file in $required) { if (!(Test-Path -LiteralPath $file)) { throw "Falta artefacto: $file" } }
+if (Test-Path -LiteralPath $destination) { Remove-Item -LiteralPath $destination -Recurse -Force }
 New-Item -ItemType Directory -Force $destination | Out-Null
 $powerShellSource = Split-Path (Get-Command pwsh -ErrorAction Stop).Source -Parent
 $runtimeParent = Join-Path $destination 'runtime'
@@ -34,6 +36,7 @@ Get-ChildItem -LiteralPath $powerShellSource -Recurse -File -Force | ForEach-Obj
 }
 Copy-Item -LiteralPath $required[0] -Destination (Join-Path $destination 'StreamCam.exe') -Force
 Copy-Item -LiteralPath $required[1] -Destination $destination -Force
+Copy-Item -LiteralPath $required[4] -Destination $destination -Force
 Get-ChildItem -LiteralPath $release -Filter '*.dll' -File | Copy-Item -Destination $destination -Force
 foreach ($folder in @('platforms','styles','tls','imageformats','generic','networkinformation')) {
     $source = Join-Path $release $folder
@@ -42,13 +45,14 @@ foreach ($folder in @('platforms','styles','tls','imageformats','generic','netwo
 $android = Join-Path $destination 'android'
 $obs = Join-Path $destination 'obs-plugin'
 New-Item -ItemType Directory -Force $android,$obs | Out-Null
-Copy-Item -LiteralPath $required[2] -Destination (Join-Path $android 'StreamCam-debug.apk') -Force
+Copy-Item -LiteralPath $required[2] -Destination (Join-Path $android 'StreamCam-preview.apk') -Force
 Copy-Item -LiteralPath $required[3] -Destination $obs -Force
 Copy-Item -LiteralPath (Join-Path $projectRoot 'obs-plugin\install.ps1') -Destination $obs -Force
 Copy-Item -LiteralPath (Join-Path $projectRoot 'docs\INSTALACION.md') -Destination (Join-Path $destination 'LEEME.md') -Force
 Copy-Item -LiteralPath (Join-Path $projectRoot 'docs\SOLUCION_DE_PROBLEMAS.md') -Destination $destination -Force
 Copy-Item -LiteralPath (Join-Path $projectRoot 'docs\PRUEBA_INTEGRACION.md') -Destination $destination -Force
 Copy-Item -LiteralPath (Join-Path $projectRoot 'README.md') -Destination $destination -Force
+Copy-Item -LiteralPath (Join-Path $projectRoot 'EMPEZAR.md') -Destination (Join-Path $destination 'EMPEZAR.txt') -Force
 Copy-Item -LiteralPath (Join-Path $projectRoot 'LICENSE') -Destination $destination -Force
 $notices=Join-Path $destination 'notices' 
 New-Item -ItemType Directory -Force $notices | Out-Null
@@ -61,4 +65,10 @@ $files | Sort-Object FullName | ForEach-Object {
     $relative = [IO.Path]::GetRelativePath($destination,$_.FullName)
     "$hash  $relative"
 } | Set-Content -LiteralPath (Join-Path $destination 'SHA256SUMS.txt')
-Write-Output "Paquete de integración, todavía no v1 validada: $destination"
+$distributionRoot = Join-Path $projectRoot 'dist'
+$archive = Join-Path $distributionRoot 'StreamCam-Windows-x64-preview.zip'
+Compress-Archive -Path (Join-Path $destination '*') -DestinationPath $archive -Force
+Copy-Item -LiteralPath (Join-Path $android 'StreamCam-preview.apk') -Destination (Join-Path $distributionRoot 'StreamCam-preview.apk') -Force
+Write-Output "Paquete Windows completo: $archive"
+Write-Output "APK Android de prueba: $(Join-Path $distributionRoot 'StreamCam-preview.apk')"
+Write-Output "Carpeta descomprimida (StreamCam.exe requiere sus DLL vecinas): $destination"

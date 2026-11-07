@@ -412,7 +412,7 @@ private:
         const auto script=QCoreApplication::applicationDirPath()+QStringLiteral("/create-identity.ps1");
         auto *task=QThread::create([result,script] {
             try { static std::mutex identityMutex; std::lock_guard lock(identityMutex); result->identity=PcIdentity::load(script); }
-            catch(const std::exception &) {result->error=QStringLiteral("No se pudo preparar la identidad de esta PC. Volvé a extraer el paquete completo y reintentá.");}
+            catch(const std::exception &error) {result->error=QString::fromUtf8(error.what());}
         });
         connect(task,&QThread::finished,task,&QObject::deleteLater);
         connect(task,&QThread::finished,this,[this,result,generation] {
