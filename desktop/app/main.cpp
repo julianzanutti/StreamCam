@@ -27,6 +27,12 @@
 #include "PcIdentity.h"
 #include "QrImage.h"
 #include <QNetworkInterface>
+#include <QNetworkAccessManager>
+#include <QNetworkReply>
+#include <QNetworkRequest>
+#include <QDesktopServices>
+#include <QTimer>
+#include "UpdateRelease.h"
 #include <QMessageBox>
 #include <QCoreApplication>
 #include "../media/WebRtcReceiver.h"
@@ -231,6 +237,13 @@ public:
                 else QMessageBox::information(this,QStringLiteral("Abrir OBS"),QStringLiteral("Abrí OBS Studio desde tu acceso directo y agregá la fuente StreamCam."));
             }
         });
+        auto *updates = new QPushButton(QStringLiteral("Verificar actualizaciones"), root);
+        updates->setObjectName(QStringLiteral("textAction"));
+        columns->addWidget(updates, 0, 1, 1, 1, Qt::AlignRight);
+        connect(updates, &QPushButton::clicked, this, [this, updates] { checkForUpdates(updates); });
+        auto *version = new QLabel(QStringLiteral("Versión ") + QCoreApplication::applicationVersion(), root);
+        version->setObjectName(QStringLiteral("muted"));
+        columns->addWidget(version, 1, 1, 1, 1, Qt::AlignRight);
         connectionLayout->addStretch();
 
         auto *preview = new QFrame(root);
@@ -348,6 +361,48 @@ public:
     }
 
 private:
+    void checkForUpdates(QPushButton *button) {
+        button->setEnabled(false);
+        button->setText(QStringLiteral("Buscando actualizaciones…"));
+        auto *manager = new QNetworkAccessManager(this);
+        QNetworkRequest request(QUrl(QStringLiteral("https://api.github.com/repos/julianzanutti/StreamCam/releases?per_page=20")));
+        request.setRawHeader("Accept", "application/vnd.github+json");
+        request.setRawHeader("User-Agent", "StreamCam/" + QCoreApplication::applicationVersion().toUtf8());
+        request.setTransferTimeout(15000);
+        auto *reply = manager->get(request);
+        auto *timeout = new QTimer(reply);
+        timeout->setSingleShot(true);
+        connect(timeout, &QTimer::timeout, reply, &QNetworkReply::abort);
+        timeout->start(20000);
+        connect(reply, &QIODevice::readyRead, reply, [reply] {
+            if (reply->bytesAvailable() > 1024 * 1024) reply->abort();
+        });
+        connect(reply, &QNetworkReply::finished, this, [this, reply, manager, button] {
+            button->setText(QStringLiteral("Verificar actualizaciones"));
+            button->setEnabled(true);
+            const bool ok = reply->error() == QNetworkReply::NoError &&
+                reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt() == 200;
+            const auto release = ok ? streamcam::newestWindowsRelease(reply->readAll()) : std::nullopt;
+            manager->deleteLater();
+            if (!release) {
+                QMessageBox::warning(this, QStringLiteral("Actualizaciones"),
+                    QStringLiteral("No pudimos consultar las actualizaciones. Revisá tu conexión e intentá de nuevo más tarde."));
+            } else if (!streamcam::isNewerRelease(*release, QCoreApplication::applicationVersion())) {
+                QMessageBox::information(this, QStringLiteral("Actualizaciones"),
+                    QStringLiteral("Tenés la última versión de StreamCam (%1).").arg(QCoreApplication::applicationVersion()));
+            } else {
+                QMessageBox box(QMessageBox::Information, QStringLiteral("Actualización disponible"),
+                    QStringLiteral("Está disponible StreamCam %1. Tu versión es %2.")
+                        .arg(release->tag, QCoreApplication::applicationVersion()), QMessageBox::Cancel, this);
+                auto *download = box.addButton(QStringLiteral("Abrir descarga"), QMessageBox::AcceptRole);
+                box.setButtonText(QMessageBox::Cancel, QStringLiteral("Más tarde"));
+                box.exec();
+                if (box.clickedButton() == download && !QDesktopServices::openUrl(release->url))
+                    QMessageBox::warning(this, QStringLiteral("Actualizaciones"),
+                        QStringLiteral("No se pudo abrir el navegador. Buscá las publicaciones de julianzanutti/StreamCam en GitHub."));
+            }
+        });
+    }
     QLabel *stateLabel_=nullptr, *hintLabel_=nullptr, *qrLabel_=nullptr;
     QComboBox *transport_=nullptr;
     QPushButton *pairButton_=nullptr, *cancelButton_=nullptr, *refreshButton_=nullptr, *revokeButton_=nullptr;
@@ -492,7 +547,7 @@ int main(int argc, char *argv[]) {
     QApplication app(argc, argv);
     app.setApplicationName(QStringLiteral("StreamCam"));
     app.setOrganizationName(QStringLiteral("StreamCam"));
-    app.setApplicationVersion(QStringLiteral("0.2.0-preview"));
+    app.setApplicationVersion(QStringLiteral(STREAMCAM_APP_VERSION));
     const auto directory = QCoreApplication::applicationDirPath();
     const bool check = app.arguments().contains(QStringLiteral("--check-install"));
     const auto report = [check](const QString &message) {

@@ -1,5 +1,5 @@
 #ifndef AppVersion
-  #define AppVersion "0.2.0-preview"
+  #define AppVersion "0.2.2-preview"
 #endif
 #ifndef PackageDir
   #define PackageDir "..\..\dist\StreamCam-preview"
@@ -12,7 +12,7 @@
 AppId={{D8C48776-49C9-4B11-986A-21CB99676586}
 AppName=StreamCam
 AppVersion={#AppVersion}
-VersionInfoVersion=0.2.0.0
+VersionInfoVersion=0.2.2.0
 AppPublisher=StreamCam
 AppPublisherURL=https://github.com/julianzanutti/StreamCam
 AppSupportURL=https://github.com/julianzanutti/StreamCam/issues

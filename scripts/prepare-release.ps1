@@ -1,4 +1,4 @@
-param([string]$Version='0.2.0-preview', [switch]$Installer, [switch]$SkipPortable)
+param([string]$Version='0.2.2-preview', [switch]$Installer, [switch]$SkipPortable)
 $ErrorActionPreference='Stop'
 if ($Version -notmatch '^[0-9]+\.[0-9]+\.[0-9]+(?:-[a-zA-Z0-9.-]+)?$') {throw 'Versión inválida.'}
 $projectRoot=Split-Path $PSScriptRoot -Parent

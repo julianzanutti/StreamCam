@@ -23,8 +23,12 @@ internal class UsbAudioCapture(
         check(worker == null) { "El micrófono ya está iniciado." }
         val minBuffer = AudioRecord.getMinBufferSize(SAMPLE_RATE, CHANNEL, ENCODING)
         check(minBuffer > 0) { "El teléfono no admite captura PCM a 48 kHz." }
-        val audio = AudioRecord(MediaRecorder.AudioSource.MIC, SAMPLE_RATE, CHANNEL, ENCODING,
-            maxOf(minBuffer * 2, SAMPLES_PER_PACKET * 2 * 4))
+        val audio = try {
+            AudioRecord(MediaRecorder.AudioSource.MIC, SAMPLE_RATE, CHANNEL, ENCODING,
+                maxOf(minBuffer * 2, SAMPLES_PER_PACKET * 2 * 4))
+        } catch (error: SecurityException) {
+            throw IllegalStateException("Permití el acceso al micrófono antes de iniciar audio.", error)
+        }
         check(audio.state == AudioRecord.STATE_INITIALIZED) {
             audio.release(); "No se pudo abrir el micrófono. Revisá el permiso y cerrá otras apps de audio."
         }

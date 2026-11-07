@@ -4,6 +4,8 @@ StreamCam utiliza Qt 6.8.3 con enlace dinámico, libwebrtc Windows crow-misia 15
 
 La interfaz Android utiliza Material Components for Android 1.12.0 (Apache-2.0): https://github.com/material-components/material-components-android/tree/1.12.0
 
+El lector QR Android utiliza AndroidX CameraX 1.4.2 (Apache-2.0), https://developer.android.com/jetpack/androidx/releases/camera, y Google ML Kit Barcode Scanning 17.3.0 con el modelo incluido, https://developers.google.com/ml-kit/vision/barcode-scanning/android. ML Kit se distribuye bajo sus términos de servicio: https://developers.google.com/ml-kit/terms.
+
 El paquete incluye PowerShell portable con sus archivos de licencia en runtime/powershell: https://github.com/PowerShell/PowerShell (MIT y avisos de componentes incluidos).
 
 - Qt: https://www.qt.io/licensing/open-source-lgpl-obligations — conservar las DLLs separadas y reemplazables. Fuentes de la versión: https://download.qt.io/archive/qt/6.8/6.8.3/

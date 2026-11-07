@@ -15,6 +15,6 @@ El APK debug sirve para desarrollo. Una release pública debe firmarse con la cl
 
 USB utiliza depuración ADB y un bootstrap de identidad pública desde Windows, sin QR. Wi-Fi usa el QR de Windows. Ambos mantienen TLS y prueba de posesión de la clave del teléfono. La cámara puede permanecer activa con la pantalla bloqueada mediante un servicio de primer plano y una notificación visible.
 
-El lector QR permite cambiar entre las cámaras que Android expone al escáner y recuerda la elegida. Usa enfoque continuo y reconoce códigos normales e invertidos. La aplicación figura como **StreamCam** en el cajón de aplicaciones; si un launcher la oculta, revisá su configuración de aplicaciones ocultas.
+El lector QR usa CameraX y ML Kit con el modelo incluido en la APK, sin descargarlo al abrir el lector. Analiza el cuadro completo a resolución preferida de 1080p (con alternativa según el dispositivo), permite tocar para enfocar, usar zoom y cambiar de cámara. Recuerda la cámara elegida. La aplicación figura como **StreamCam** en el cajón de aplicaciones; si un launcher la oculta, revisá su configuración de aplicaciones ocultas.
 
 La calidad efectiva depende de los formatos que admita cada lente y del encoder. El bitrate de video se adapta por red; el máximo configurado no garantiza una tasa constante por Wi-Fi. El micrófono WebRTC de Wi-Fi requiere que el dispositivo permita captura de audio en primer plano.

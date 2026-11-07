@@ -4,4 +4,6 @@ La aplicación Qt para Windows maneja emparejamiento USB/ADB y Wi‑Fi, recibe W
 
 El receptor admite pista de audio Opus por Wi‑Fi y paquetes PCM mono 48 kHz por USB. El micrófono se abre solo cuando el usuario lo selecciona en Android. La salida a OBS es local y transitoria; StreamCam no escribe los medios a disco.
 
+El botón **Verificar actualizaciones** consulta GitHub al pulsarlo, incluye las versiones preview con instalador Windows y compara su versión con la instalada. Si hay una nueva versión, permite abrir la publicación para descargarla. La consulta no interrumpe la conexión con el teléfono.
+
 La compilación requiere Visual Studio 2022 C++ x64, Qt 6, la distribución WebRTC indicada en `BUILDING.md`, OBS SDK e import library compatibles con el OBS objetivo.

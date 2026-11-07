@@ -23,8 +23,7 @@
         android:usesCleartextTraffic="false">
         <service android:name=".CameraStreamingService" android:exported="false" android:foregroundServiceType="camera|microphone" />
         <activity android:name=".QrCaptureActivity" android:exported="false"
-            android:configChanges="orientation|screenSize|keyboardHidden"
-            android:theme="@android:style/Theme.Material.NoActionBar" />
+            android:theme="@style/Theme.StreamCam" />
         <activity android:launchMode="singleTop" android:name=".PairingActivity" android:theme="@style/Theme.StreamCam" android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
