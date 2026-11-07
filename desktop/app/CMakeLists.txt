@@ -42,3 +42,6 @@ target_link_libraries(StreamCamAuthProbe PRIVATE Qt6::Core Qt6::Network Qt6::Web
 
 add_executable(StreamCamUsbProbe UsbProbe.cpp)
 target_link_libraries(StreamCamUsbProbe PRIVATE Qt6::Core streamcam_media)
+
+add_executable(StreamCamIdentityProbe IdentityProbe.cpp)
+target_link_libraries(StreamCamIdentityProbe PRIVATE Qt6::Core Qt6::Network)

@@ -1,5 +1,7 @@
 #pragma once
 #include <QProcess>
+#include <QProcessEnvironment>
+#include <QRegularExpression>
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QStandardPaths>
@@ -15,7 +17,8 @@ struct PcIdentity {
     QSslConfiguration tls;
     QByteArray pin;
     QString id;
-    static PcIdentity load(const QString &scriptPath) {
+    static PcIdentity load(const QString &scriptPath,
+                           const QString &identityDirectory = QStandardPaths::writableLocation(QStandardPaths::AppLocalDataLocation)) {
         auto shell = QCoreApplication::applicationDirPath()+QStringLiteral("/runtime/powershell/pwsh.exe");
         if (!QFileInfo::exists(shell)) shell=QStandardPaths::findExecutable(QStringLiteral("pwsh"));
         if (shell.isEmpty()) {
@@ -24,9 +27,12 @@ struct PcIdentity {
         }
         if (shell.isEmpty()) throw std::runtime_error("Falta el runtime de identidad. Volvé a extraer el paquete completo de StreamCam.");
         QProcess process;
-        const auto identityDirectory = QStandardPaths::writableLocation(QStandardPaths::AppLocalDataLocation);
+        auto environment = QProcessEnvironment::systemEnvironment();
+        environment.insert(QStringLiteral("NO_COLOR"), QStringLiteral("1"));
+        process.setProcessEnvironment(environment);
         if (identityDirectory.isEmpty()) throw std::runtime_error("Windows no informó una carpeta local para guardar la identidad de StreamCam.");
         process.start(shell, {QStringLiteral("-NoLogo"), QStringLiteral("-NoProfile"), QStringLiteral("-NonInteractive"),
+            QStringLiteral("-ExecutionPolicy"), QStringLiteral("Bypass"),
             QStringLiteral("-File"), scriptPath, QStringLiteral("-Directory"), identityDirectory});
         if (!process.waitForStarted(10000))
             throw std::runtime_error(QStringLiteral("No se pudo iniciar PowerShell (%1).").arg(process.errorString()).toUtf8().constData());
@@ -34,14 +40,16 @@ struct PcIdentity {
             process.kill(); process.waitForFinished();
             throw std::runtime_error("PowerShell tardó demasiado al preparar la identidad de esta PC. Reiniciá StreamCam e intentá de nuevo.");
         }
-        const auto standardError = QString::fromUtf8(process.readAllStandardError()).trimmed();
+        auto standardError = QString::fromUtf8(process.readAllStandardError());
+        standardError.remove(QRegularExpression(QStringLiteral("\x1b\\[[0-9;]*m")));
+        standardError = standardError.trimmed();
         if (process.exitStatus() != QProcess::NormalExit || process.exitCode() != 0) {
             auto detail = standardError;
             if (detail.size() > 600) detail = detail.right(600);
             const auto message = detail.isEmpty()
                 ? QStringLiteral("PowerShell terminó con código %1.").arg(process.exitCode())
                 : QStringLiteral("PowerShell: %1").arg(detail);
-            throw std::runtime_error(QStringLiteral("No se pudo preparar la identidad de esta PC. %1 Revisá que la carpeta de datos de StreamCam permita escritura.").arg(message).toUtf8().constData());
+            throw std::runtime_error(QStringLiteral("No se pudo preparar la identidad de esta PC. %1 Consultá la sección de identidad en SOLUCION_DE_PROBLEMAS.md.").arg(message).toUtf8().constData());
         }
         auto output = process.readAllStandardOutput();
         auto document = QJsonDocument::fromJson(output);

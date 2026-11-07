@@ -39,6 +39,8 @@ python desktop/check-auth.py
 
 Para pruebas OBS, configurar `OBS_STUDIO_DIR` con la carpeta de instalación. Las pruebas de medios usan imágenes sintéticas; no sustituyen la aceptación física en un teléfono.
 
+En Windows, después de compilar, ejecutá `./scripts/check-identity-policy.ps1` para reproducir el bloqueo de un script descargado bajo AllSigned y comprobar que StreamCam crea y recarga su identidad sin cambiar la política permanente del equipo. La prueba usa una identidad temporal, sin tocar los teléfonos vinculados.
+
 ## Preparar una publicación
 
 Ejecutar `python scripts/audit-public.py` (o `scripts/audit-public.ps1` en Windows) antes de generar la fuente pública. `scripts/prepare-release.ps1` ejecuta la auditoría PowerShell, valida los hashes y los archivos necesarios y genera un ZIP Windows completo más el APK de prueba. Los diagnósticos y las notas locales están ignorados. Las releases estables deben incluir licencia y avisos de todos los componentes, APK firmado por el mantenedor, binarios Windows, plugin y hashes SHA-256. Nunca empaquetar identidades, dispositivos confiables, claves de firma o logs. Publicar únicamente después de completar la matriz de aceptación física.
