@@ -1,7 +1,9 @@
 # StreamCam V2 · Plan de desarrollo
 
 
-## Candidato 0.3.16-preview — salida directa Windows
+## Release 0.3.16-preview — salida directa Windows
+
+Publicación verificada por API pública: [descargar 0.3.16-preview](https://github.com/julianzanutti/StreamCam/releases/tag/v0.3.16-preview). Los cinco assets están subidos y sus digests coinciden con los archivos locales. Windows y Android compilan; lint y 27 pruebas Android pasan; CTest Windows 10/10 y comprobación del paquete aprobadas.
 
 Windows incorpora salida WASAPI de audio a un dispositivo elegido durante la ejecución, desactivada al inicio. Con VB-CABLE instalado por separado, CABLE Input recibe la salida de StreamCam y CABLE Output aparece como micrófono de Windows para aplicaciones de llamadas. OBS sigue disponible como consumidor independiente. StreamCam no distribuye ni instala automáticamente el controlador externo y no modifica el dispositivo predeterminado de Windows.
 
@@ -13,7 +15,7 @@ La migración Android física comprobada sigue siendo 0.2.2 → 0.3.14 por ADB. 
 
 Fecha: 2026-11-08. Base auditada: `e1a646d`, revisión estática del repositorio y documentación V1. Este documento combina el plan y el estado local de implementación; las pruebas físicas siguen pendientes cuando se indican.
 
-## Estado local de implementación (2026-11-08)
+## Registro previo de implementación (2026-11-08)
 
 La release 0.3.14-preview integra Windows y Android. Android versionCode 18 incorpora un botón manual para comprobar GitHub Releases, descargar solo APK con digest SHA-256, validar paquete/versionCode y abrir el instalador Android para confirmación del usuario. `assembleDebug` y `lintDebug` pasan. El APK fue firmado con el mismo certificado que la release 0.2.2 para mantener continuidad; la clave privada queda local y no se publica. Windows 0.3.14-preview y OBS compilan; el instalador integrado pasó `--check-install`. El APK es debug y el instalador no tiene Authenticode; sigue siendo preview. El flujo de actualización aún necesita prueba física en teléfono. El smoke elevado de instalación y las 27 pruebas unitarias corresponden al paquete 0.3.13 anterior y no deben atribuirse a la release actual.
 

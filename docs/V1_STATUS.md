@@ -1,7 +1,9 @@
 # Estado de StreamCam
 
 
-## Candidato 0.3.16-preview — salida directa Windows
+## Release 0.3.16-preview — salida directa Windows
+
+Publicación verificada por API pública: [descargar 0.3.16-preview](https://github.com/julianzanutti/StreamCam/releases/tag/v0.3.16-preview). Los cinco assets están subidos y sus digests coinciden con los archivos locales. Windows y Android compilan; lint y 27 pruebas Android pasan; CTest Windows 10/10 y comprobación del paquete aprobadas.
 
 Windows incorpora salida WASAPI de audio a un dispositivo elegido durante la ejecución, desactivada al inicio. Con VB-CABLE instalado por separado, CABLE Input recibe la salida de StreamCam y CABLE Output aparece como micrófono de Windows para aplicaciones de llamadas. OBS sigue disponible como consumidor independiente. StreamCam no distribuye ni instala automáticamente el controlador externo y no modifica el dispositivo predeterminado de Windows.
 
@@ -11,7 +13,9 @@ Evidencia local: prueba de 60 segundos con tonos estéreo separados, mute, error
 
 La migración Android física comprobada sigue siendo 0.2.2 → 0.3.14 por ADB. Las pruebas de esta salida no sustituyen instalación física del candidato, uso en Discord, escucha/calibración, sincronía audiovisual, sesiones de horas ni matriz de fabricantes. El APK sigue siendo debug y Windows carece de Authenticode; publicación preliminar.
 
-Actualizado: 2026-11-08. Release público: 0.3.14-preview. Android versionCode 18 incorpora verificación de releases, descarga APK con SHA-256 obligatorio y entrega al instalador del sistema para confirmación; `assembleDebug` y `lintDebug` pasan. El APK conserva el certificado SHA-256 del APK público 0.2.2 para permitir actualización sobre esa instalación. Windows 0.3.14-preview y OBS se compilaron; el paquete pasó `--check-install`. Android sideload no puede instalar en silencio. Continúan pendientes QA física, audio real, pairing, matriz de dispositivos y sesiones prolongadas; preview, APK debug firmado con la clave de continuidad existente e instalador Windows sin Authenticode.
+## Registro histórico de 0.3.14
+
+Actualizado entonces: 2026-11-08. Release público de esa revisión: 0.3.14-preview. Android versionCode 18 incorpora verificación de releases, descarga APK con SHA-256 obligatorio y entrega al instalador del sistema para confirmación; `assembleDebug` y `lintDebug` pasan. El APK conserva el certificado SHA-256 del APK público 0.2.2 para permitir actualización sobre esa instalación. Windows 0.3.14-preview y OBS se compilaron; el paquete pasó `--check-install`. Android sideload no puede instalar en silencio. Continúan pendientes QA física, audio real, pairing, matriz de dispositivos y sesiones prolongadas; preview, APK debug firmado con la clave de continuidad existente e instalador Windows sin Authenticode.
 
 ## Verificación de distribución — 2026-11-08
 
