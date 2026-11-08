@@ -81,7 +81,10 @@ public:
             peak=std::max(peak,std::abs(static_cast<float>(pcmData[i])/32768.0F));
         const auto peakDbfs=peak>1.0e-6F ? 20.0F*std::log10(peak) : -120.0F;
         bool delivered=false;
-        for (auto *socket : clients_) {
+        // A failed write can synchronously disconnect and remove a client.
+        // Iterate a snapshot so that removal cannot invalidate this loop.
+        const auto clients = clients_;
+        for (auto *socket : clients) {
             if (socket->bytesToWrite() > 9600) { ++droppedFrames_; continue; }
             if (socket->property("lastAudioTimestamp").toULongLong()==timestamp) continue;
             if(socket->write(packet)==packet.size()) delivered=true;

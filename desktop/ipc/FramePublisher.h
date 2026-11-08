@@ -56,7 +56,10 @@ public:
         qToLittleEndian<quint64>(frame->timestampUs, data + 24);
         // bytes 32..39 reserved; must be zero.
         bool delivered=false;
-        for (auto *socket : clients_) {
+        // A failed write can synchronously disconnect and remove a client.
+        // Iterate a snapshot so that removal cannot invalidate this loop.
+        const auto clients = clients_;
+        for (auto *socket : clients) {
             if (socket->bytesToWrite() != 0) continue; // drop newest for a slow consumer
             if (socket->property("hasFrame").toBool() && socket->property("lastFrameTimestamp").toLongLong()==frame->timestampUs) continue;
             if(socket->write(header)!=header.size())continue;
