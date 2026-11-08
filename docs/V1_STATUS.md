@@ -2,6 +2,14 @@
 
 Actualizado: 2026-11-08. Release público: 0.3.14-preview. Android versionCode 18 incorpora verificación de releases, descarga APK con SHA-256 obligatorio y entrega al instalador del sistema para confirmación; `assembleDebug` y `lintDebug` pasan. El APK conserva el certificado SHA-256 del APK público 0.2.2 para permitir actualización sobre esa instalación. Windows 0.3.14-preview y OBS se compilaron; el paquete pasó `--check-install`. Android sideload no puede instalar en silencio. Continúan pendientes QA física, audio real, pairing, matriz de dispositivos y sesiones prolongadas; preview, APK debug firmado con la clave de continuidad existente e instalador Windows sin Authenticode.
 
+## Verificación de distribución — 2026-11-08
+
+- Release público 0.3.14-preview verificado por API: APK, instalador Windows, SHA256SUMS.txt, LICENSE y estado/límites adjuntos. Digests remotos de APK e instalador coinciden con los locales.
+- Moto G32: actualización por ADB desde 0.2.2 (versionCode 3) a 0.3.14 (versionCode 18), conservando datos, finalizó con Success. PairingActivity abrió sin excepción AndroidRuntime reciente. Esto no valida todavía el descargador de actualizaciones ni la captura de audio/video de esta versión.
+- Suite CTest Windows completa fuera del sandbox: 10/10. La restricción de IPC del sandbox produjo un fallo de AudioOutputWorker que no se reprodujo al ejecutar la suite fuera.
+- Auditoría de fuente PowerShell: PASS, 168 archivos visibles para Git.
+- Limpieza de paquetes históricos locales autorizada: 30,34 GiB recuperados. Se conservaron 0.3.14, respaldo 0.3.13, release 0.2.2 y la base StreamCam-preview requerida por el empaquetador. Las rutas antiguas de evidencias históricas pueden no seguir presentes.
+
 ## Implementado
 
 Android: cámara frontal/trasera, perfiles SD/HD/Full HD filtrados por capacidades de la lente y encoder; bitrate configurable; servicio en primer plano con notificación. Tres modos: solo video, solo audio o ambos; permisos solicitados según la opción. Captura de audio por AudioRecord/PCM USB y pista WebRTC/Opus Wi-Fi. Detener medios conserva la vinculación; desconectar es una acción aparte. UI Material en retrato y paisaje.
@@ -18,7 +26,7 @@ En el árbol de desarrollo local, los controles Windows incluyen faders de entra
 
 La nueva compilación local de trabajo para V2 incorpora además un código USB aleatorio de seis dígitos por sesión. Windows lo muestra fuera de los extras ADB; Android lo recibe por TLS con certificado fijado y requiere compararlo y marcar una casilla antes de firmar el desafío. La aprobación final con la identidad visible sigue en Windows. No prueba el origen físico del intent exportado y SEC-002 permanece abierto.
 
-Estos cambios no se subieron al release público 0.2.2-preview.
+Estos cambios están incluidos en el release público 0.3.14-preview. Las evidencias históricas siguientes corresponden a las versiones indicadas en cada fila.
 
 ## Evidencia
 
