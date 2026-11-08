@@ -1,7 +1,7 @@
 param(
-    [string]$Version = '0.3.14-preview',
-    [string]$PackageName = 'StreamCam-v2-0.3.14-preview',
-    [string]$ReleaseName = 'v2-0.3.14-preview'
+    [string]$Version = '0.3.15-preview',
+    [string]$PackageName = 'StreamCam-v2-0.3.15-preview',
+    [string]$ReleaseName = 'v2-0.3.15-preview'
 )
 $ErrorActionPreference = 'Stop'
 if ($Version -notmatch '^\d+\.\d+\.\d+(?:-[A-Za-z0-9.-]+)?$') { throw 'Versión inválida.' }
@@ -40,7 +40,7 @@ Copy-Item -LiteralPath $apk -Destination (Join-Path $package 'android/StreamCam-
 Copy-Item -LiteralPath $apk -Destination (Join-Path $release "StreamCam-$Version-android-preview.apk") -Force
 Copy-Item -LiteralPath $plugin -Destination (Join-Path $package 'obs-plugin/streamcam-source.dll') -Force
 Copy-Item -LiteralPath (Join-Path $root 'obs-plugin/install.ps1') -Destination (Join-Path $package 'obs-plugin/install.ps1') -Force
-$packageReadme = (Get-Content -Raw (Join-Path $root 'README.md')).Replace('# StreamCam',"# StreamCam`r`n`r`n> Carpeta local de trabajo $Version. La publicación pública de GitHub sigue en 0.2.2-preview; estos cambios V2 todavía no están publicados.")
+$packageReadme = (Get-Content -Raw (Join-Path $root 'README.md')).Replace('# StreamCam',"# StreamCam`r`n`r`n> Carpeta local de trabajo $Version. Consultá GitHub Releases para verificar las versiones publicadas. Este paquete es preliminar y conserva las limitaciones documentadas.")
 Set-Content -LiteralPath (Join-Path $package 'README.md') -Value $packageReadme -Encoding utf8
 New-Item -ItemType Directory -Force (Join-Path $package 'docs/screenshots') | Out-Null
 Copy-Item -LiteralPath (Join-Path $root 'docs/screenshots/windows-conexion.jpg') -Destination (Join-Path $package 'docs/screenshots') -Force

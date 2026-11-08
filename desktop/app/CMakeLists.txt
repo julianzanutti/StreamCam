@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.25)
-project(StreamCamDesktop VERSION 0.3.14 LANGUAGES CXX)
+project(StreamCamDesktop VERSION 0.3.15 LANGUAGES CXX)
 enable_testing()
 
 set(CMAKE_CXX_STANDARD 20)

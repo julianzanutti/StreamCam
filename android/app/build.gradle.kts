@@ -18,8 +18,8 @@ android {
         applicationId = "com.streamcam.diagnostics"
         minSdk = 29
         targetSdk = 35
-        versionCode = 18
-        versionName = "0.3.14"
+        versionCode = 19
+        versionName = "0.3.15"
     }
 
     buildFeatures {
