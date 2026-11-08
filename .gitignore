@@ -47,3 +47,6 @@ docs/MOTO_G32_DIAGNOSTICO_*.md
 !.env.example
 *devices.json
 *identity.json
+
+# Isolated local publication checkout
+.publish-polish/

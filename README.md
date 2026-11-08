@@ -4,7 +4,7 @@ Usá la cámara y el micrófono de tu teléfono Android en OBS Studio para Windo
 
 ## Descargar StreamCam
 
-### [⬇ Abrir descargas oficiales de StreamCam](https://github.com/julianzanutti/StreamCam/releases/latest)
+### [⬇ Abrir descargas oficiales de StreamCam](https://github.com/julianzanutti/StreamCam/releases/tag/v0.3.14-preview)
 
 En la página, abrí **Assets** y descargá el archivo que corresponde a cada equipo:
 
@@ -29,7 +29,7 @@ Seguí la [guía paso a paso](EMPEZAR.md): instalar en Windows y Android, conect
 
 ![Controles de voz de StreamCam para Windows](docs/screenshots/windows-voz.jpg)
 
-La segunda captura muestra los controles de voz de la V2 en desarrollo. Todavía no forman parte de la descarga pública 0.2.2.
+La segunda captura muestra los controles de voz incluidos en 0.3.14-preview. Su comportamiento con micrófonos físicos y distintos fabricantes sigue en validación.
 
 ## Qué incluye la versión pública
 
@@ -37,7 +37,7 @@ La segunda captura muestra los controles de voz de la V2 en desarrollo. Todavía
 - Video H.264 por hardware y audio por USB o Wi-Fi.
 - Conexión local autenticada. No usa cuentas ni comienza a transmitir antes de la confirmación visible.
 
-Los controles de ganancia, compresor, puerta de ruido, eco y selección de micrófonos están en desarrollo para V2. Android y el fabricante deciden qué entradas de micrófono y funciones acústicas exponen; todavía falta validarlas con teléfonos y micrófonos reales. Consultá el [estado de pruebas](docs/V1_STATUS.md).
+La preview incluye ganancia, compresor, puerta de ruido, eco creativo y selección de entradas compatibles. Android y el fabricante deciden qué entradas de micrófono y funciones acústicas exponen; todavía falta validarlas con teléfonos y micrófonos reales. Consultá el [estado de pruebas](docs/V1_STATUS.md). Para usar el teléfono en Discord, seguí la [guía de micrófono de Windows](docs/AUDIO_VIRTUAL_WINDOWS.md).
 
 ## Código fuente (opcional)
 
