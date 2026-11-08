@@ -6,11 +6,13 @@ Usá la cámara y el micrófono de tu teléfono Android en OBS Studio para Windo
 
 > **¿Solo querés instalar StreamCam? No pulses el botón verde `Code`: descarga el código para desarrolladores.** Elegí qué necesitás:
 
-[⬇ Descargar instalador para Windows](https://github.com/julianzanutti/StreamCam/releases/download/v0.2.2-preview/StreamCam-0.2.2-preview-windows-x64-setup.exe) · [📱 Descargar APK para Android](https://github.com/julianzanutti/StreamCam/releases/download/v0.2.2-preview/StreamCam-0.2.2-preview-android-preview.apk) · [📖 Abrir instrucciones paso a paso](EMPEZAR.md)
+[⬇ Descargar instalador para Windows](https://github.com/julianzanutti/StreamCam/releases/download/v0.2.2-preview/StreamCam-0.2.2-preview-windows-x64-setup.exe) · [📱 Descargar APK para Android](https://github.com/julianzanutti/StreamCam/releases/download/v0.2.2-preview/StreamCam-0.2.2-preview-android-preview.apk) · [📖 Abrir instrucciones paso a paso](EMPEZAR.md) · [🖼 Ver capturas](#así-se-ve)
 
 También podés entrar a [Descargas de StreamCam](https://github.com/julianzanutti/StreamCam/releases/tag/v0.2.2-preview) y elegir **Assets** para ver los archivos. Para instalar, no hace falta descargar el ZIP del código fuente.
 
 Es una **versión preliminar**. Android muestra una advertencia porque el APK es de prueba y no está publicado en Play Store. Windows también puede mostrar un aviso por falta de firma del editor. No desactives Play Protect ni Defender. [Ver los detalles de seguridad](SECURITY.md).
+
+En **Assets** de esa página, descargá el instalador terminado en `windows-x64-setup.exe` y el APK terminado en `android-preview.apk`. `LICENSE` y `SHA256SUMS.txt` son opcionales; el código fuente es para desarrollo.
 
 ## Así se ve
 
@@ -24,7 +26,7 @@ Las capturas muestran dónde conectar el teléfono y cómo se ajusta la voz:
 
 ![StreamCam para Windows, ganancia, compresor y puerta de ruido](docs/screenshots/windows-voz.jpg)
 
-La pantalla de voz muestra el trabajo de V2 en desarrollo; esos controles todavía no están en los instaladores de la preview 0.2.2 que se descargan arriba.
+La pantalla de voz muestra el trabajo V2 local en desarrollo; esos controles todavía no están en los instaladores públicos 0.2.2 que se descargan arriba.
 
 ## Empezar en tres pasos
 
@@ -43,6 +45,6 @@ La [guía rápida con más detalles](EMPEZAR.md) incluye OBS y solución de erro
 
 El procesamiento depende de las funciones que expone cada teléfono. La puerta de ruido no reemplaza un supresor de ruido; las pruebas con micrófono real, sincronía y sesiones largas siguen pendientes. Consultá el [estado de pruebas](docs/V1_STATUS.md).
 
-## Para desarrolladores
+## Código fuente (opcional)
 
-El código fuente está disponible en el botón **Code** de GitHub o para descarga directa en [ZIP](https://github.com/julianzanutti/StreamCam/archive/refs/heads/main.zip). Para compilar, seguí [BUILDING.md](BUILDING.md). La licencia es [GPL-3.0-or-later](LICENSE).
+Si solo querés usar StreamCam, no hace falta entrar acá. El código está para quien quiera revisarlo o compilarlo: [ver archivos del proyecto](https://github.com/julianzanutti/StreamCam/tree/main) · [descargar ZIP del código](https://github.com/julianzanutti/StreamCam/archive/refs/heads/main.zip) · [guía para compilar](BUILDING.md) · [licencia GPL-3.0-or-later](LICENSE).
