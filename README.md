@@ -6,11 +6,15 @@ Usá la cámara y el micrófono de tu teléfono Android en OBS Studio para Windo
 
 > **¿Solo querés instalar StreamCam? No pulses el botón verde `Code`: descarga el código para desarrolladores.** Elegí qué necesitás:
 
-[1. Instalador para Windows](https://github.com/julianzanutti/StreamCam/releases/download/v0.2.2-preview/StreamCam-0.2.2-preview-windows-x64-setup.exe) · [2. APK para Android](https://github.com/julianzanutti/StreamCam/releases/download/v0.2.2-preview/StreamCam-0.2.2-preview-android-preview.apk) · [3. Instrucciones paso a paso](EMPEZAR.md)
+[⬇ Descargar instalador para Windows](https://github.com/julianzanutti/StreamCam/releases/download/v0.2.2-preview/StreamCam-0.2.2-preview-windows-x64-setup.exe) · [📱 Descargar APK para Android](https://github.com/julianzanutti/StreamCam/releases/download/v0.2.2-preview/StreamCam-0.2.2-preview-android-preview.apk) · [📖 Abrir instrucciones paso a paso](EMPEZAR.md)
+
+También podés entrar a [Descargas de StreamCam](https://github.com/julianzanutti/StreamCam/releases/tag/v0.2.2-preview) y elegir **Assets** para ver los archivos. Para instalar, no hace falta descargar el ZIP del código fuente.
 
 Es una **versión preliminar**. Android muestra una advertencia porque el APK es de prueba y no está publicado en Play Store. Windows también puede mostrar un aviso por falta de firma del editor. No desactives Play Protect ni Defender. [Ver los detalles de seguridad](SECURITY.md).
 
 ## Así se ve
+
+Las capturas muestran dónde conectar el teléfono y cómo se ajusta la voz:
 
 ### Conectar el teléfono por USB o Wi‑Fi
 
@@ -34,7 +38,7 @@ La [guía rápida con más detalles](EMPEZAR.md) incluye OBS y solución de erro
 
 - Cámara frontal o trasera, perfiles SD, HD y Full HD.
 - H.264 por hardware; audio USB y Wi‑Fi.
-- En la V2 en desarrollo: controles Windows de ganancia, compresor y puerta de ruido; selección de entradas de micrófono y cancelación de eco en Android cuando el teléfono las admite. Aún falta validar estos cambios con micrófonos reales.
+- En la V2 en desarrollo: faders de voz y eco creativo con demora, repeticiones y mezcla en Windows; selección de entradas de micrófono, compresor, puerta de ruido y cancelación acústica de eco en Android cuando el teléfono las admite. Aún falta validar estos cambios con micrófonos reales.
 - Conexión local autenticada. No usa cuentas, no guarda audio o video y no transmite antes de la confirmación visible.
 
 El procesamiento depende de las funciones que expone cada teléfono. La puerta de ruido no reemplaza un supresor de ruido; las pruebas con micrófono real, sincronía y sesiones largas siguen pendientes. Consultá el [estado de pruebas](docs/V1_STATUS.md).
