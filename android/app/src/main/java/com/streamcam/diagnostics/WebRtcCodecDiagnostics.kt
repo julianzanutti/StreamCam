@@ -8,9 +8,10 @@ import org.webrtc.MediaStreamTrack
 import org.webrtc.PeerConnectionFactory
 
 /** Loads the pinned WebRTC runtime and reports codecs from a hardware-only send factory. */
-internal class WebRtcCodecDiagnostics(context: Context) : AutoCloseable {
+internal class WebRtcCodecDiagnostics(context: Context, audioSettings:AudioInputSettings? = null) : AutoCloseable {
     internal val eglBase: EglBase
     internal val peerConnectionFactory: PeerConnectionFactory
+    private val audioDeviceModule=audioSettings?.let { AudioInputCatalog.createWebRtcAudioModule(context,it) }
     internal val hardwareVideoEncoderFactory: HardwareVideoEncoderFactory
     val report: String
 
@@ -23,6 +24,7 @@ internal class WebRtcCodecDiagnostics(context: Context) : AutoCloseable {
             false
         )
         peerConnectionFactory = PeerConnectionFactory.builder()
+            .apply { audioDeviceModule?.let(::setAudioDeviceModule) }
             .setVideoEncoderFactory(hardwareVideoEncoderFactory)
             .setVideoDecoderFactory(DefaultVideoDecoderFactory(eglBase.eglBaseContext))
             .createPeerConnectionFactory()
@@ -40,6 +42,7 @@ internal class WebRtcCodecDiagnostics(context: Context) : AutoCloseable {
 
     override fun close() {
         peerConnectionFactory.dispose()
+        audioDeviceModule?.release()
         eglBase.release()
     }
 

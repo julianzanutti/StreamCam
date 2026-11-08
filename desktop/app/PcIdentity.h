@@ -20,10 +20,12 @@ struct PcIdentity {
     static PcIdentity load(const QString &scriptPath,
                            const QString &identityDirectory = QStandardPaths::writableLocation(QStandardPaths::AppLocalDataLocation)) {
         auto shell = QCoreApplication::applicationDirPath()+QStringLiteral("/runtime/powershell/pwsh.exe");
-        if (!QFileInfo::exists(shell)) shell=QStandardPaths::findExecutable(QStringLiteral("pwsh"));
-        if (shell.isEmpty()) {
-            const auto installed=qEnvironmentVariable("ProgramFiles")+QStringLiteral("/PowerShell/7/pwsh.exe");
-            if(QFileInfo::exists(installed))shell=installed;
+        if (!QFileInfo::exists(shell)) {
+#ifdef STREAMCAM_DEV_SYSTEM_TOOLS
+            shell=QStandardPaths::findExecutable(QStringLiteral("pwsh"));
+#else
+            shell.clear();
+#endif
         }
         if (shell.isEmpty()) throw std::runtime_error("Falta el runtime de identidad. Volvé a extraer el paquete completo de StreamCam.");
         QProcess process;

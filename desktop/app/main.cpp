@@ -1,5 +1,8 @@
 #include <QApplication>
 #include <QComboBox>
+#include <QCheckBox>
+#include <QSlider>
+#include <QDoubleSpinBox>
 #include <QProcess>
 #include <QFileDialog>
 #include <QSettings>
@@ -15,15 +18,22 @@
 #include <QVBoxLayout>
 #include <QWidget>
 #include <QScrollArea>
+#include <QProgressBar>
+#include <algorithm>
+#include <cmath>
 #include <QElapsedTimer>
 #include <QThread>
+#include <QMetaObject>
 #include <QSignalBlocker>
 #include <QSizePolicy>
 #include <QStackedLayout>
 #include <optional>
 #include <functional>
 #include <mutex>
+#include <atomic>
 #include "PairingServer.h"
+#include "AudioEffectsAckTracker.h"
+#include "ControlNegotiationState.h"
 #include "PcIdentity.h"
 #include "QrImage.h"
 #include <QNetworkInterface>
@@ -37,12 +47,18 @@
 #include <QCoreApplication>
 #include "../media/WebRtcReceiver.h"
 #include <QPointer>
+#include <QSet>
+#include <QUuid>
+#include <QJsonArray>
+#include <QRegularExpression>
 #include <QTemporaryDir>
 #include <QLockFile>
 #include <QDir>
 #include <cstdio>
 #include "../ipc/FramePublisher.h"
+#include "../ipc/FrameOutputWorker.h"
 #include "../ipc/AudioPublisher.h"
+#include "../ipc/AudioOutputWorker.h"
 
 namespace {
 
@@ -120,6 +136,125 @@ public:
         auto *cancelPairing = cancelButton_ = new QPushButton(QStringLiteral("Cancelar conexión"), connection);
         cancelPairing->setEnabled(false);
         connectionLayout->addWidget(cancelPairing);
+        auto *voiceToggle=new QPushButton(QStringLiteral("Controles de audio ▾"),connection);
+        voiceToggle->setObjectName(QStringLiteral("textAction"));voiceToggle->setCheckable(true);
+        connectionLayout->addWidget(voiceToggle);
+        auto *voicePanel=new QWidget(connection);
+        auto *voiceLayout=new QVBoxLayout(voicePanel);voiceLayout->setContentsMargins(0,4,0,4);
+        auto *muteAudio=new QCheckBox(QStringLiteral("Silenciar audio hacia OBS"),voicePanel);
+        muteAudio->setAccessibleName(QStringLiteral("Silenciar la salida de micrófono hacia OBS"));
+        auto *inputGainLabel=new QLabel(voicePanel);
+        auto *inputGain=new QSlider(Qt::Horizontal,voicePanel);inputGain->setRange(-18,18);inputGain->setSingleStep(1);
+        auto *outputGainLabel=new QLabel(voicePanel);
+        auto *outputGain=new QSlider(Qt::Horizontal,voicePanel);outputGain->setRange(-18,12);outputGain->setSingleStep(1);
+        auto *compressor=new QCheckBox(QStringLiteral("Compresor suave · 3:1"),voicePanel);
+        auto *compressorThresholdLabel=new QLabel(voicePanel);
+        auto *compressorThreshold=new QSlider(Qt::Horizontal,voicePanel);compressorThreshold->setRange(-36,-6);compressorThreshold->setSingleStep(1);
+        auto *compressorRatioLabel=new QLabel(voicePanel);
+        auto *compressorRatio=new QSlider(Qt::Horizontal,voicePanel);compressorRatio->setRange(1,10);compressorRatio->setSingleStep(1);
+        auto *noiseGate=new QCheckBox(QStringLiteral("Puerta de ruido · silenciar silencios"),voicePanel);
+        auto *gateThresholdLabel=new QLabel(voicePanel);
+        auto *gateThreshold=new QSlider(Qt::Horizontal,voicePanel);gateThreshold->setRange(-72,-24);gateThreshold->setSingleStep(1);
+        auto *echoEffect=new QCheckBox(QStringLiteral("Eco creativo · repeticiones hacia OBS"),voicePanel);
+        auto *echoDelayLabel=new QLabel(voicePanel);
+        auto *echoDelay=new QSlider(Qt::Horizontal,voicePanel);echoDelay->setRange(30,500);echoDelay->setSingleStep(10);
+        auto *echoFeedbackLabel=new QLabel(voicePanel);
+        auto *echoFeedback=new QSlider(Qt::Horizontal,voicePanel);echoFeedback->setRange(0,70);echoFeedback->setSingleStep(5);
+        auto *echoMixLabel=new QLabel(voicePanel);
+        auto *echoMix=new QSlider(Qt::Horizontal,voicePanel);echoMix->setRange(0,75);echoMix->setSingleStep(5);
+        auto *echoControl=new QCheckBox(QStringLiteral("Cancelar eco en Android · al iniciar"),voicePanel);
+        echoControl->setToolTip(QStringLiteral("La cancelación de eco se configura al iniciar la captura y depende del modelo y la entrada seleccionada."));
+        auto *voiceInfo=new QLabel(QStringLiteral("El eco creativo agrega repeticiones; la cancelación de eco en Android reduce el retorno del parlante al micrófono. Ganancia, compresor, puerta y eco creativo se aplican antes de OBS por USB y Wi-Fi. La puerta no reemplaza la supresión de ruido."),voicePanel);
+        voiceInfo->setObjectName(QStringLiteral("muted"));voiceInfo->setWordWrap(true);
+        voiceLayout->addWidget(muteAudio);voiceLayout->addWidget(inputGainLabel);voiceLayout->addWidget(inputGain);
+        voiceLayout->addWidget(outputGainLabel);voiceLayout->addWidget(outputGain);
+        voiceLayout->addWidget(compressor);voiceLayout->addWidget(compressorThresholdLabel);voiceLayout->addWidget(compressorThreshold);
+        voiceLayout->addWidget(compressorRatioLabel);voiceLayout->addWidget(compressorRatio);
+        voiceLayout->addWidget(noiseGate);voiceLayout->addWidget(gateThresholdLabel);voiceLayout->addWidget(gateThreshold);
+        voiceLayout->addWidget(echoEffect);voiceLayout->addWidget(echoDelayLabel);voiceLayout->addWidget(echoDelay);
+        voiceLayout->addWidget(echoFeedbackLabel);voiceLayout->addWidget(echoFeedback);
+        voiceLayout->addWidget(echoMixLabel);voiceLayout->addWidget(echoMix);
+        voiceLayout->addWidget(echoControl);voiceLayout->addWidget(voiceInfo);
+        // Keep the existing processing controls discoverable when the app opens.
+        // The connection column is scrollable, so users can still reach pairing
+        // and saved-device actions on shorter screens.
+        connectionLayout->addWidget(voicePanel);voicePanel->show();voiceToggle->setChecked(true);
+        connect(voiceToggle,&QPushButton::toggled,voicePanel,[voicePanel,voiceToggle](bool open) {
+            voicePanel->setVisible(open);voiceToggle->setText(open ? QStringLiteral("Controles de audio ▾") : QStringLiteral("Controles de audio ▸"));
+        });
+        QSettings voicePreferences;
+        muteAudio->setChecked(voicePreferences.value(QStringLiteral("voice/muted"),false).toBool());
+        inputGain->setValue(voicePreferences.value(QStringLiteral("voice/inputGainDb"),0).toInt());
+        outputGain->setValue(voicePreferences.value(QStringLiteral("voice/outputGainDb"),0).toInt());
+        compressor->setChecked(voicePreferences.value(QStringLiteral("voice/compressor"),false).toBool());
+        compressorThreshold->setValue(voicePreferences.value(QStringLiteral("voice/compressorThresholdDb"),-18).toInt());
+        compressorRatio->setValue(voicePreferences.value(QStringLiteral("voice/compressorRatio"),3).toInt());
+        noiseGate->setChecked(voicePreferences.value(QStringLiteral("voice/noiseGate"),false).toBool());
+        gateThreshold->setValue(voicePreferences.value(QStringLiteral("voice/gateThresholdDb"),-48).toInt());
+        echoEffect->setChecked(voicePreferences.value(QStringLiteral("voice/echoEffect"),false).toBool());
+        echoDelay->setEnabled(echoEffect->isChecked());echoFeedback->setEnabled(echoEffect->isChecked());echoMix->setEnabled(echoEffect->isChecked());
+        echoDelay->setValue(voicePreferences.value(QStringLiteral("voice/echoDelayMs"),180).toInt());
+        echoFeedback->setValue(voicePreferences.value(QStringLiteral("voice/echoFeedback"),30).toInt());
+        echoMix->setValue(voicePreferences.value(QStringLiteral("voice/echoMix"),25).toInt());
+        echoControl->setChecked(voicePreferences.value(QStringLiteral("voice/echoCancellation"),true).toBool());
+        inputGainLabel->setText(QStringLiteral("Ganancia de entrada · %1 dB").arg(inputGain->value()));
+        outputGainLabel->setText(QStringLiteral("Nivel de salida · %1 dB").arg(outputGain->value()));
+        compressorThresholdLabel->setText(QStringLiteral("Umbral del compresor · %1 dB").arg(compressorThreshold->value()));
+        compressorRatioLabel->setText(QStringLiteral("Relación · %1:1").arg(compressorRatio->value()));
+        gateThresholdLabel->setText(QStringLiteral("Umbral de puerta · %1 dB").arg(gateThreshold->value()));
+        echoDelayLabel->setText(QStringLiteral("Demora del eco · %1 ms").arg(echoDelay->value()));
+        echoFeedbackLabel->setText(QStringLiteral("Repeticiones · %1 %").arg(echoFeedback->value()));
+        echoMixLabel->setText(QStringLiteral("Mezcla de eco · %1 %").arg(echoMix->value()));
+        connect(inputGain,&QSlider::valueChanged,this,[this,inputGainLabel](int value) {
+            inputGainLabel->setText(QStringLiteral("Ganancia de entrada · %1 dB").arg(value));
+            QSettings().setValue(QStringLiteral("voice/inputGainDb"),value);applyVoiceSettings();
+        });
+        connect(muteAudio,&QCheckBox::toggled,this,[this](bool muted) {
+            QSettings().setValue(QStringLiteral("voice/muted"),muted);applyVoiceSettings();
+        });
+        connect(outputGain,&QSlider::valueChanged,this,[this,outputGainLabel](int value) {
+            outputGainLabel->setText(QStringLiteral("Nivel de salida · %1 dB").arg(value));
+            QSettings().setValue(QStringLiteral("voice/outputGainDb"),value);applyVoiceSettings();
+        });
+        connect(compressor,&QCheckBox::toggled,this,[this](bool enabled) {
+            QSettings().setValue(QStringLiteral("voice/compressor"),enabled);applyVoiceSettings();
+        });
+        connect(compressorThreshold,&QSlider::valueChanged,this,[this,compressorThresholdLabel](int value) {
+            compressorThresholdLabel->setText(QStringLiteral("Umbral del compresor · %1 dB").arg(value));
+            QSettings().setValue(QStringLiteral("voice/compressorThresholdDb"),value);applyVoiceSettings();
+        });
+        connect(compressorRatio,&QSlider::valueChanged,this,[this,compressorRatioLabel](int value) {
+            compressorRatioLabel->setText(QStringLiteral("Relación · %1:1").arg(value));
+            QSettings().setValue(QStringLiteral("voice/compressorRatio"),value);applyVoiceSettings();
+        });
+        connect(noiseGate,&QCheckBox::toggled,this,[this](bool enabled) {
+            QSettings().setValue(QStringLiteral("voice/noiseGate"),enabled);applyVoiceSettings();
+        });
+        connect(gateThreshold,&QSlider::valueChanged,this,[this,gateThresholdLabel](int value) {
+            gateThresholdLabel->setText(QStringLiteral("Umbral de puerta · %1 dB").arg(value));
+            QSettings().setValue(QStringLiteral("voice/gateThresholdDb"),value);applyVoiceSettings();
+        });
+        connect(echoEffect,&QCheckBox::toggled,this,[this,echoDelay,echoFeedback,echoMix](bool enabled) {
+            echoDelay->setEnabled(enabled);echoFeedback->setEnabled(enabled);echoMix->setEnabled(enabled);
+            QSettings().setValue(QStringLiteral("voice/echoEffect"),enabled);applyVoiceSettings();
+        });
+        connect(echoDelay,&QSlider::valueChanged,this,[this,echoDelayLabel](int value) {
+            echoDelayLabel->setText(QStringLiteral("Demora del eco · %1 ms").arg(value));
+            QSettings().setValue(QStringLiteral("voice/echoDelayMs"),value);applyVoiceSettings();
+        });
+        connect(echoFeedback,&QSlider::valueChanged,this,[this,echoFeedbackLabel](int value) {
+            echoFeedbackLabel->setText(QStringLiteral("Repeticiones · %1 %").arg(value));
+            QSettings().setValue(QStringLiteral("voice/echoFeedback"),value);applyVoiceSettings();
+        });
+        connect(echoMix,&QSlider::valueChanged,this,[this,echoMixLabel](int value) {
+            echoMixLabel->setText(QStringLiteral("Mezcla de eco · %1 %").arg(value));
+            QSettings().setValue(QStringLiteral("voice/echoMix"),value);applyVoiceSettings();
+        });
+        connect(echoControl,&QCheckBox::toggled,this,[this](bool enabled) {
+            QSettings().setValue(QStringLiteral("voice/echoCancellation"),enabled);
+            sendAndroidAudioEffects();
+        });
+        applyVoiceSettings();
         auto *savedToggle=new QPushButton(QStringLiteral("Teléfonos vinculados ▸"),connection);
         savedToggle->setObjectName(QStringLiteral("textAction"));savedToggle->setCheckable(true);
         connectionLayout->addWidget(savedToggle);
@@ -149,7 +284,7 @@ public:
             try { pairing_.revokeDevice(id); }
             catch(...) { state->setText(QStringLiteral("No se pudo guardar la revocación")); return; }
             if(activeSocket_ && activeSocket_->property("deviceId").toString()==id) {
-                activeSocket_->close(); activeSocket_.clear(); receiver_.reset(); publisher_.clear(); audioPublisher_.clear();
+                activeSocket_->close(); activeSocket_.clear(); receiver_.reset(); frameOutput_.setSource(nullptr); audioOutput_.setSource(nullptr);
                 pending_=false; updateControls();
             }
             refreshDevices();
@@ -163,18 +298,35 @@ public:
             pending_=false; qrLabel_->clear(); qrLabel_->hide();
             stateLabel_->setText(text); updateControls();
         });
-        connect(&pairing_, &PairingServer::confirmationRequested, this, [this, qrLabel,state] {
+        connect(&pairing_, &PairingServer::confirmationInvalidated, this, [this](quint64 attemptId) {
+            if (consentAttemptId_ != attemptId) return;
+            consentAttemptId_ = 0;
+            if (consentDialog_) consentDialog_->reject();
+        });
+        connect(&pairing_, &PairingServer::confirmationRequested, this, [this, qrLabel,state](quint64 attemptId, const QString &deviceId, bool reconnect) {
             qrLabel->clear(); qrLabel->hide();
-            state->setText(QStringLiteral("Confirmá la vinculación del teléfono"));
-            auto *dialog=new QMessageBox(QMessageBox::Question,QStringLiteral("Vincular teléfono"),
-                QStringLiteral("El teléfono verificó esta PC. ¿Querés autorizarlo para esta sesión?"),QMessageBox::Yes|QMessageBox::No,this);
-            dialog->setButtonText(QMessageBox::Yes,QStringLiteral("Vincular"));
+            const bool usb=pairingAddress_==QStringLiteral("127.0.0.1");
+            state->setText(usb ? QStringLiteral("Código USB de esta sesión: %1").arg(pairing_.usbVerificationCode()) : QStringLiteral("Confirmá la vinculación del teléfono"));
+            QString fingerprint = QStringLiteral("Identidad nueva sin verificar");
+            if (!deviceId.isEmpty() && deviceId.size() >= 24)
+                fingerprint = deviceId.left(12) + QStringLiteral("…") + deviceId.right(8);
+            auto *dialog=new QMessageBox(QMessageBox::Question,
+                reconnect ? QStringLiteral("Autorizar reconexión") : QStringLiteral("Vincular teléfono"),
+                QStringLiteral("%1 solicita %2.%4\nHuella del dispositivo: %3\n¿Querés autorizar esta identidad para la sesión?")
+                    .arg(reconnect ? QStringLiteral("Un teléfono conocido") : QStringLiteral("Un teléfono"),
+                         reconnect ? QStringLiteral("reconectarse") : QStringLiteral("vincularse"), fingerprint,
+                         usb ? QStringLiteral("\nCódigo de verificación USB: %1\nComparalo con el que aparece en Android; autorizá solo si coincide.").arg(pairing_.usbVerificationCode()) : QString{}),
+                QMessageBox::Yes|QMessageBox::No,this);
+            dialog->setButtonText(QMessageBox::Yes,reconnect ? QStringLiteral("Reconectar") : QStringLiteral("Vincular"));
             dialog->setButtonText(QMessageBox::No,QStringLiteral("Cancelar"));
             dialog->setAttribute(Qt::WA_DeleteOnClose);
+            consentAttemptId_ = attemptId;
             consentDialog_=dialog;
-            connect(dialog,&QDialog::finished,this,[this](int result) {
-                pairing_.confirm(result==QMessageBox::Yes);
-                if(result!=QMessageBox::Yes) {pending_=false;stateLabel_->setText(QStringLiteral("Vinculación cancelada"));updateControls();}
+            connect(dialog,&QDialog::finished,this,[this,attemptId](int result) {
+                if (consentAttemptId_ != attemptId) return;
+                consentAttemptId_ = 0;
+                const bool current = pairing_.confirm(attemptId,result==QMessageBox::Yes);
+                if (!current || result!=QMessageBox::Yes) {pending_=false;stateLabel_->setText(QStringLiteral("Vinculación cancelada o vencida"));updateControls();}
             });
             if(isMinimized())showNormal();
             raise(); activateWindow(); dialog->open(); QApplication::alert(this,0);
@@ -185,37 +337,111 @@ public:
             socket->setParent(this);
             if (activeSocket_) activeSocket_->close();
             activeSocket_ = socket; pending_=false; preparing_=false; updateControls();
+            voiceAckTracker_.reset();pendingVoiceRequestId_.clear();audioEffectsDirty_=false;
+            const auto controlV2=std::make_shared<streamcam::ControlNegotiationState>();
+            const bool wifiControl=pairingAddress_!=QStringLiteral("127.0.0.1");
+            if(wifiControl)controlV2->markPaired({"audio.effects.ack"});
             try { receiver_ = std::make_unique<streamcam::WebRtcReceiver>(nullptr, pairingAddress_); }
             catch (const std::exception &) { socket->close(); activeSocket_.clear(); updateControls(); state->setText(QStringLiteral("No se pudo preparar el receptor de video. Volvé a conectar.")); return; }
+            frameOutput_.setSource(receiver_->frameSource());
+            audioOutput_.setSource(receiver_->audioSource());
             socket->setMaxAllowedIncomingMessageSize(pairingAddress_==QStringLiteral("127.0.0.1") ? 2*1024*1024+20 : 131072);
             socket->setMaxAllowedIncomingFrameSize(pairingAddress_==QStringLiteral("127.0.0.1") ? 2*1024*1024+20 : 131072);
             connect(receiver_.get(), &streamcam::WebRtcReceiver::signalReady, socket, [socket](const QJsonObject &message) {
                 socket->sendTextMessage(QString::fromUtf8(QJsonDocument(message).toJson(QJsonDocument::Compact)));
             });
+            applyVoiceSettings();
             connect(receiver_.get(), &streamcam::WebRtcReceiver::statusChanged, state, &QLabel::setText);
             connect(socket,&QWebSocket::binaryMessageReceived,this,[this,socket](const QByteArray &packet) {
                 if(activeSocket_!=socket || !receiver_ || pairingAddress_!=QStringLiteral("127.0.0.1")) {socket->close();return;}
                 try {receiver_->receiveUsb(packet);} catch(...) {socket->close();}
             });
-            connect(socket, &QWebSocket::textMessageReceived, this, [this, socket](const QString &text) {
+            connect(socket, &QWebSocket::textMessageReceived, this, [this, socket, controlV2, wifiControl](const QString &text) {
                 if (activeSocket_ != socket || !receiver_) return;
                 const auto message = QJsonDocument::fromJson(text.toUtf8());
                 if (!message.isObject()) { socket->close(); return; }
                 try {
                     const auto object=message.object();
                     const auto type=object.value(QStringLiteral("type")).toString();
-                    if(type==QStringLiteral("video.stop") || type==QStringLiteral("media.stop")) {
+                    const auto parseCapabilities=[](const QJsonValue &value) {
+                        if(!value.isArray())throw std::invalid_argument("capabilities must be an array");
+                        const auto array=value.toArray();
+                        if(array.size()>16)throw std::invalid_argument("too many capabilities");
+                        streamcam::ControlNegotiationState::Capabilities capabilities;
+                        for(const auto &entry:array) {
+                            if(!entry.isString() || entry.toString().isEmpty() || entry.toString().size()>64 ||
+                                !capabilities.insert(entry.toString().toStdString()).second)
+                                throw std::invalid_argument("invalid or duplicate capability");
+                        }
+                        return capabilities;
+                    };
+                    const auto updateControlProperties=[socket,controlV2] {
+                        socket->setProperty("controlV2Ready",controlV2->ready());
+                        socket->setProperty("controlV2AudioAck",controlV2->supports("audio.effects.ack"));
+                    };
+                    if(type==QStringLiteral("control.ready")) {
+                        if(object.size()!=3 || object.value(QStringLiteral("version")).toInt()!=2 || !wifiControl) {socket->close();return;}
+                        controlV2->receiveReady(parseCapabilities(object.value(QStringLiteral("capabilities"))));
+                        updateControlProperties();
+                        if(controlV2->ready() && controlV2->supports("audio.effects.ack"))sendAndroidAudioEffects();
+                        return;
+                    }
+                    if(type==QStringLiteral("control.hello")) {
+                        if(object.size()!=3 || object.value(QStringLiteral("version")).toInt()!=2 || !wifiControl) {socket->close();return;}
+                        const auto negotiated=controlV2->receiveHello(parseCapabilities(object.value(QStringLiteral("capabilities"))));
+                        QJsonArray negotiatedJson;
+                        for(const auto &capability:negotiated)negotiatedJson.append(QString::fromStdString(capability));
+                        if(socket->sendTextMessage(QString::fromUtf8(QJsonDocument(QJsonObject{
+                            {QStringLiteral("type"),QStringLiteral("control.ready")},
+                            {QStringLiteral("version"),2}, {QStringLiteral("capabilities"),negotiatedJson}
+                        }).toJson(QJsonDocument::Compact)))<0) {socket->close();return;}
+                        controlV2->markLocalReadySent(negotiated);
+                        updateControlProperties();
+                        if(controlV2->ready() && controlV2->supports("audio.effects.ack"))sendAndroidAudioEffects();
+                    } else if(type==QStringLiteral("audio.effects")) {
+                        if(object.size()!=4 || object.value(QStringLiteral("version")).toInt()!=2 ||
+                            !controlV2->ready() || !controlV2->supports("audio.effects.ack") ||
+                            !object.value(QStringLiteral("echoCancellation")).isBool()) {socket->close();return;}
+                        const auto requestId=object.value(QStringLiteral("request_id")).toString();
+                        if(requestId.size()!=32 || requestId.contains(QRegularExpression(QStringLiteral("[^0-9a-fA-F]")))) {socket->close();return;}
+                        socket->sendTextMessage(QString::fromUtf8(QJsonDocument(QJsonObject{
+                            {QStringLiteral("type"),QStringLiteral("audio.effects.ack")},
+                            {QStringLiteral("version"),2},{QStringLiteral("request_id"),requestId},{QStringLiteral("ok"),true}
+                        }).toJson(QJsonDocument::Compact)));
+                    } else if(type==QStringLiteral("audio.effects.ack")) {
+                        const auto requestId=object.value(QStringLiteral("request_id")).toString();
+                        if(!socket->property("controlV2AudioAck").toBool() || object.size()!=4 ||
+                            object.value(QStringLiteral("version")).toInt()!=2 || requestId.size()!=32 ||
+                            requestId.contains(QRegularExpression(QStringLiteral("[^0-9a-fA-F]"))) ||
+                            !object.value(QStringLiteral("ok")).isBool()) {socket->close();return;}
+                        const auto ack=voiceAckTracker_.acknowledge(requestId.toStdString());
+                        if(ack==streamcam::AudioEffectsAckTracker::AckAction::Unexpected) {socket->close();return;}
+                        if(ack==streamcam::AudioEffectsAckTracker::AckAction::Duplicate)return;
+                        pendingVoiceRequestId_.clear();
+                        stateLabel_->setText(object.value(QStringLiteral("ok")).toBool()
+                            ? QStringLiteral("Android guardó la preferencia de cancelación de eco")
+                            : QStringLiteral("Android no pudo guardar la preferencia de audio"));
+                        if(audioEffectsDirty_) {audioEffectsDirty_=false;sendAndroidAudioEffects();}
+                    } else if(type==QStringLiteral("video.stop") || type==QStringLiteral("media.stop")) {
                         if(object.size()!=1) {socket->close();return;}
-                        receiver_->reset(pairingAddress_);publisher_.clear();audioPublisher_.clear();
+                        receiver_->reset(pairingAddress_);frameOutput_.clear();audioOutput_.clear();
                         stateLabel_->setText(QStringLiteral("Transmisión detenida · podés volver a iniciarla desde Android"));
                     } else {
-                        if(pairingAddress_==QStringLiteral("127.0.0.1") || (type!=QStringLiteral("rtc.offer") && type!=QStringLiteral("rtc.ice"))) {socket->close();return;}
+                        if(type==QStringLiteral("control.hello") || type==QStringLiteral("control.ready") || type==QStringLiteral("audio.effects") ||
+                            pairingAddress_==QStringLiteral("127.0.0.1") || (type!=QStringLiteral("rtc.offer") && type!=QStringLiteral("rtc.ice"))) {socket->close();return;}
                         receiver_->receive(object);
                     }
                 } catch (...) { socket->close(); }
             });
+            if(wifiControl) {
+                controlV2->startLocalHello();
+                socket->sendTextMessage(QString::fromUtf8(QJsonDocument(QJsonObject{
+                    {QStringLiteral("type"),QStringLiteral("control.hello")},
+                    {QStringLiteral("version"),2},{QStringLiteral("capabilities"),QJsonArray{QStringLiteral("audio.effects.ack")}}
+                }).toJson(QJsonDocument::Compact)));
+            }
             connect(socket, &QWebSocket::disconnected, this, [this, socket, state] {
-                if (activeSocket_ == socket) { receiver_.reset(); publisher_.clear(); audioPublisher_.clear(); activeSocket_.clear(); pending_=false; updateControls(); state->setText(QStringLiteral("Teléfono desconectado · volvé a conectar cuando quieras")); }
+                if (activeSocket_ == socket) { receiver_.reset(); frameOutput_.setSource(nullptr); audioOutput_.setSource(nullptr); activeSocket_.clear(); pending_=false; voiceAckTracker_.reset();pendingVoiceRequestId_.clear();audioEffectsDirty_=false;updateControls(); state->setText(QStringLiteral("Teléfono desconectado · volvé a conectar cuando quieras")); }
             });
         });
         connect(pairButton, &QPushButton::clicked, this, [this] { beginConnection(); });
@@ -236,6 +462,23 @@ public:
                     QMessageBox::warning(this,QStringLiteral("No se pudo abrir OBS"),QStringLiteral("Abrí OBS desde su acceso directo y agregá la fuente StreamCam."));
                 else QMessageBox::information(this,QStringLiteral("Abrir OBS"),QStringLiteral("Abrí OBS Studio desde tu acceso directo y agregá la fuente StreamCam."));
             }
+        });
+        auto *virtualMicrophone=new QPushButton(QStringLiteral("Usar audio en Discord u otras apps"),connection);
+        connectionLayout->addWidget(virtualMicrophone);
+        connect(virtualMicrophone,&QPushButton::clicked,this,[this] {
+            QMessageBox box(QMessageBox::Information,QStringLiteral("Micrófono virtual para otras aplicaciones"),
+                QStringLiteral("StreamCam ya entrega el micrófono del teléfono a la fuente StreamCam de OBS. Para una transmisión hecha en OBS, agregá esa fuente y asegurate de que esté habilitada en el mezclador.\n\n"
+                    "Discord y otras aplicaciones necesitan un dispositivo de entrada de Windows. La cámara virtual de OBS solo lleva video. Para el audio hace falta un controlador de cable virtual, como VB-CABLE, y configurar OBS para enviar el audio de StreamCam a ese cable.\n\n"
+                    "1. Instalá VB-CABLE desde el sitio oficial y reiniciá Windows si el instalador lo solicita.\n"
+                    "2. En OBS: Archivo → Configuración → Audio → Avanzado → Dispositivo de monitorización: CABLE Input (VB-Audio Virtual Cable).\n"
+                    "3. En OBS: Editar → Propiedades de audio avanzadas → fila StreamCam → Monitorización de audio: Monitorizar y salida.\n"
+                    "4. En Discord: Ajustes → Voz y vídeo → Dispositivo de entrada: CABLE Output (VB-Audio Virtual Cable).\n\n"
+                    "Para enviar el micrófono solo a Discord, usá Monitorizar solamente en el paso 3. Para incluirlo en tu directo de OBS, usá Monitorizar y salida. Evitá capturar el retorno del cable en OBS para prevenir eco."),
+                QMessageBox::Ok,this);
+            auto *download=box.addButton(QStringLiteral("Descargar VB-CABLE (sitio oficial)"),QMessageBox::ActionRole);
+            box.exec();
+            if(box.clickedButton()==download)
+                QDesktopServices::openUrl(QUrl(QStringLiteral("https://vb-audio.com/Cable/")));
         });
         auto *updates = new QPushButton(QStringLiteral("Verificar actualizaciones"), root);
         updates->setObjectName(QStringLiteral("textAction"));
@@ -271,8 +514,9 @@ public:
         previewStack->addWidget(videoImage);
         previewStack->setCurrentWidget(emptyPreview);
         auto *frameTimer = new QTimer(this);
-        if (!publisher_.start()) statusBar()->showMessage(QStringLiteral("No se pudo abrir la salida OBS: otra instancia puede estar activa."));
-        if (!audioPublisher_.start()) statusBar()->showMessage(QStringLiteral("No se pudo abrir la salida OBS de audio."));
+        const QPointer<MainWindow> windowGuard(this);
+        frameOutput_.start([windowGuard](const QString &) { if(windowGuard)windowGuard->statusBar()->showMessage(QStringLiteral("No se pudo abrir la salida OBS: otra instancia puede estar activa.")); });
+        audioOutput_.start([windowGuard](const QString &) { if(windowGuard)windowGuard->statusBar()->showMessage(QStringLiteral("No se pudo abrir la salida OBS de audio.")); });
         connect(frameTimer, &QTimer::timeout, this, [this, videoImage, previewStack, emptyPreview] {
             const auto frame = receiver_ ? receiver_->latestFrame() : nullptr;
             if (!frame) {
@@ -292,15 +536,43 @@ public:
             previewStack->setCurrentWidget(videoImage);
             if(lastPreviewTimestamp_==frame->timestampUs && lastPreviewSize_==videoImage->size())return;
             lastPreviewTimestamp_=frame->timestampUs; lastPreviewSize_=videoImage->size();
-            publisher_.publish(frame);
             const QImage image(frame->bgra.data(), frame->width, frame->height, frame->stride, QImage::Format_ARGB32);
             videoImage->setPixmap(QPixmap::fromImage(image).scaled(videoImage->size().expandedTo(QSize(1,1)), Qt::KeepAspectRatio, Qt::SmoothTransformation));
             previewStack->setCurrentWidget(videoImage);
         });
         frameTimer->start(33);
-        auto *audioTimer=new QTimer(this);
-        connect(audioTimer,&QTimer::timeout,this,[this] { if(receiver_)audioPublisher_.publish(receiver_->latestAudio()); });
-        audioTimer->start(10);
+        auto *audioQueueStatus=new QLabel(QStringLiteral("Audio · cola: 0/100 · perdidos: 0"),this);
+        audioQueueStatus->setAccessibleName(QStringLiteral("Cola de audio y paquetes perdidos"));
+        audioQueueStatus->setToolTip(QStringLiteral("Cola recibida y descartes acumulados en recepción y envío a clientes OBS locales. El mismo paquete puede contar por cada cliente lento. Los descartes se reinician al reabrir StreamCam."));
+        statusBar()->addPermanentWidget(audioQueueStatus);
+        auto *audioTimer=new QTimer(this);audioTimer->setInterval(250);
+        connect(audioTimer,&QTimer::timeout,this,[this,audioQueueStatus] {
+            const auto queued=receiver_ ? receiver_->droppedAudioFrames() : 0;
+            const auto backlog=receiver_ ? receiver_->queuedAudioFrames() : 0;
+            const auto underflow=receiver_ && receiver_->audioUnderflow();
+            audioQueueStatus->setText(QStringLiteral("Audio%1 · cola: %2/%3 · perdidos: %4")
+                .arg(underflow ? QStringLiteral(" · SIN SEÑAL") : QString())
+                .arg(backlog).arg(streamcam::LatestAudio::MaxQueuedFrames).arg(queued+audioOutput_.droppedFrames()));
+            audioQueueStatus->setStyleSheet(underflow ? QStringLiteral("QLabel { color: #c62828; font-weight: bold; }") : QString());
+        });
+        audioTimer->start();
+
+        auto *audioMeter=new QProgressBar(this);
+        audioMeter->setRange(0,60);audioMeter->setValue(0);audioMeter->setTextVisible(false);
+        audioMeter->setMaximumWidth(120);audioMeter->setAccessibleName(QStringLiteral("Nivel de salida de audio hacia OBS"));
+        audioMeter->setToolTip(QStringLiteral("Nivel pico de la señal procesada que se envía a OBS, en dBFS."));
+        auto *audioMeterLabel=new QLabel(QStringLiteral("Nivel OBS: −∞ dBFS"),this);
+        statusBar()->addPermanentWidget(audioMeterLabel);
+        statusBar()->addPermanentWidget(audioMeter);
+        auto *audioMeterTimer=new QTimer(this);audioMeterTimer->setInterval(50);
+        connect(audioMeterTimer,&QTimer::timeout,this,[this,audioMeter,audioMeterLabel] {
+            const auto dbfs=audioOutput_.outputLevelDbfs();
+            const auto level=std::clamp(static_cast<int>(std::lround(dbfs+60.0F)),0,60);
+            audioMeter->setValue(level);
+            audioMeterLabel->setText(dbfs<=-90.0F ? QStringLiteral("Nivel OBS: −∞ dBFS")
+                : QStringLiteral("Nivel OBS: %1 dBFS").arg(dbfs,0,'f',1));
+        });
+        audioMeterTimer->start();
 
         auto *metrics = new QFrame(root);
         auto *metricsLayout = new QGridLayout(metrics);
@@ -340,6 +612,11 @@ public:
             QPushButton { background: #e8f0fe; color: #0b57d0; border: none; border-radius: 22px; padding: 12px 16px; min-height: 20px; }
             QPushButton:hover { background: #d3e3fd; }
             QPushButton:focus, QComboBox:focus { border: 2px solid #0b57d0; }
+            QSlider::groove:horizontal { height: 5px; background: #d6dae1; border-radius: 2px; }
+            QSlider::handle:horizontal { width: 16px; margin: -6px 0; background: #0b57d0; border-radius: 8px; }
+            QCheckBox { spacing: 8px; }
+            QProgressBar { border: 0; border-radius: 3px; background: #e6e8eb; }
+            QProgressBar::chunk { border-radius: 3px; background: #188038; }
             QPushButton#textAction { background: transparent; padding: 4px 8px; min-height: 16px; text-align: left; }
             QLabel#sectionLabel { color: #5f6368; font-weight: 600; margin-top: 12px; }
             QPushButton#primaryAction { background: #0b57d0; color: #ffffff; }
@@ -357,7 +634,7 @@ public:
         ++connectionGeneration_;
         if(adbProcess_) {adbProcess_->disconnect(this);adbProcess_->kill();}
         if(activeSocket_) {QObject::disconnect(activeSocket_,nullptr,this,nullptr);activeSocket_->abort();activeSocket_.clear();}
-        receiver_.reset();pairing_.stop();
+        frameOutput_.stop();audioOutput_.stop();receiver_.reset();pairing_.stop();
     }
 
 private:
@@ -410,6 +687,7 @@ private:
     QString lastError_;
     QPointer<QProcess> adbProcess_;
     QPointer<QMessageBox> consentDialog_;
+    quint64 consentAttemptId_=0;
     bool preparing_=false, pending_=false;
     unsigned connectionGeneration_=0;
     std::int64_t lastPreviewTimestamp_=-1;
@@ -443,10 +721,11 @@ private:
     }
     void cancelConnection() {
         ++connectionGeneration_; preparing_=false; pending_=false;
+        voiceAckTracker_.reset();pendingVoiceRequestId_.clear();audioEffectsDirty_=false;
         if(consentDialog_)consentDialog_->reject();
         if(adbProcess_) { adbProcess_->disconnect(this); adbProcess_->kill(); adbProcess_->deleteLater(); adbProcess_.clear(); }
         if(activeSocket_)activeSocket_->close();
-        activeSocket_.clear();receiver_.reset();publisher_.clear();audioPublisher_.clear();pairing_.stop();qrLabel_->clear();qrLabel_->hide();updateControls();
+        activeSocket_.clear();receiver_.reset();frameOutput_.setSource(nullptr);audioOutput_.setSource(nullptr);pairing_.stop();qrLabel_->clear();qrLabel_->hide();updateControls();
     }
     void connectionFailed(const QString &message) {
         cancelConnection();
@@ -507,14 +786,20 @@ private:
                 }
                 payload.fill('\0');
                 auto adb=QCoreApplication::applicationDirPath()+QStringLiteral("/runtime/adb/adb.exe");
-                if(!QFileInfo::exists(adb))adb=QStandardPaths::findExecutable(QStringLiteral("adb"));
+                if(!QFileInfo::exists(adb)) {
+#ifdef STREAMCAM_DEV_SYSTEM_TOOLS
+                    adb=QStandardPaths::findExecutable(QStringLiteral("adb"));
+#else
+                    adb.clear();
+#endif
+                }
                 if(adb.isEmpty()) {connectionFailed(QStringLiteral("Falta Android Platform Tools. Volvé a extraer el paquete completo de StreamCam."));return;}
                 stateLabel_->setText(QStringLiteral("Buscando el teléfono por USB…"));
                 runAdb(adb,{QStringLiteral("reverse"),QStringLiteral("tcp:47831"),QStringLiteral("tcp:47831")},generation,[this,adb,identity,generation] {
                     runAdb(adb,{QStringLiteral("shell"),QStringLiteral("am"),QStringLiteral("start"),QStringLiteral("-n"),
                         QStringLiteral("com.streamcam.diagnostics/.PairingActivity"),QStringLiteral("-a"),QStringLiteral("com.streamcam.USB_CONNECT"),
                         QStringLiteral("--es"),QStringLiteral("pc_id"),identity.id,QStringLiteral("--es"),QStringLiteral("pc_pin"),QString::fromLatin1(identity.pin.toHex())},generation,[this] {
-                            preparing_=false;pending_=true;updateControls();stateLabel_->setText(QStringLiteral("Teléfono detectado · confirmá la conexión en Android"));
+                            preparing_=false;pending_=true;updateControls();stateLabel_->setText(QStringLiteral("Teléfono detectado · código USB de esta sesión: %1").arg(pairing_.usbVerificationCode()));
                         });
                 });
             } catch(const std::exception &) {connectionFailed(QStringLiteral("No se pudo abrir la conexión. Cerrá otras instancias de StreamCam y reintentá."));}
@@ -524,12 +809,81 @@ private:
     PairingServer pairing_;
     QPointer<QWebSocket> activeSocket_;
     std::unique_ptr<streamcam::WebRtcReceiver> receiver_;
-    streamcam::FramePublisher publisher_;
-    streamcam::AudioPublisher audioPublisher_;
+    streamcam::FrameOutputWorker frameOutput_;
+    streamcam::AudioOutputWorker audioOutput_;
     QString pairingAddress_;
     QLabel *metricLabels_[4]{};
     QElapsedTimer frameMeasure_;
     std::uint64_t lastReceivedCount_=0;
+    streamcam::AudioEffectsAckTracker voiceAckTracker_;
+    QString pendingVoiceRequestId_;
+    bool pendingVoiceEchoCancellation_=true;
+    bool audioEffectsDirty_=false;
+    void applyVoiceSettings() {
+        QSettings settings;
+        streamcam::VoiceSettings voice;
+        voice.inputGainDb=settings.value(QStringLiteral("voice/inputGainDb"),0).toFloat();
+        voice.outputGainDb=settings.value(QStringLiteral("voice/outputGainDb"),0).toFloat();
+        voice.muted=settings.value(QStringLiteral("voice/muted"),false).toBool();
+        voice.compressor=settings.value(QStringLiteral("voice/compressor"),false).toBool();
+        voice.thresholdDb=settings.value(QStringLiteral("voice/compressorThresholdDb"),-18).toFloat();
+        voice.ratio=settings.value(QStringLiteral("voice/compressorRatio"),3).toFloat();
+        voice.noiseGate=settings.value(QStringLiteral("voice/noiseGate"),false).toBool();
+        voice.gateDb=settings.value(QStringLiteral("voice/gateThresholdDb"),-48).toFloat();
+        voice.echoEffect=settings.value(QStringLiteral("voice/echoEffect"),false).toBool();
+        voice.echoDelayMs=settings.value(QStringLiteral("voice/echoDelayMs"),180).toFloat();
+        voice.echoFeedback=settings.value(QStringLiteral("voice/echoFeedback"),30).toFloat()/100.0F;
+        voice.echoMix=settings.value(QStringLiteral("voice/echoMix"),25).toFloat()/100.0F;
+        audioOutput_.setVoiceSettings(voice);
+    }
+    void sendAndroidAudioEffects() {
+        if(!receiver_ || !activeSocket_ || !activeSocket_->property("controlV2AudioAck").toBool() ||
+            !activeSocket_->property("controlV2Ready").toBool())return;
+        QSettings settings;
+        const bool desired=settings.value(QStringLiteral("voice/echoCancellation"),true).toBool();
+        if(voiceAckTracker_.hasPending()) {
+            audioEffectsDirty_=desired!=pendingVoiceEchoCancellation_;
+            return;
+        }
+        audioEffectsDirty_=false;
+        const auto requestId=QUuid::createUuid().toString(QUuid::Id128);
+        if(!voiceAckTracker_.begin(requestId.toStdString()))return;
+        pendingVoiceRequestId_=requestId;
+        pendingVoiceEchoCancellation_=desired;
+        const QJsonObject message{{QStringLiteral("type"),QStringLiteral("audio.effects")},
+            {QStringLiteral("echoCancellation"),desired},{QStringLiteral("version"),2},
+            {QStringLiteral("request_id"),requestId}};
+        if(activeSocket_->sendTextMessage(QString::fromUtf8(QJsonDocument(message).toJson(QJsonDocument::Compact)))<0) {
+            voiceAckTracker_.abandon(requestId.toStdString());pendingVoiceRequestId_.clear();
+            stateLabel_->setText(QStringLiteral("No se pudo enviar la preferencia de audio a Android."));
+            return;
+        }
+        stateLabel_->setText(QStringLiteral("Esperando confirmación de la preferencia de audio en Android…"));
+        scheduleAudioEffectsAckTimeout(activeSocket_,requestId);
+    }
+    void scheduleAudioEffectsAckTimeout(QPointer<QWebSocket> socket,const QString &requestId) {
+        QTimer::singleShot(2000,this,[this,socket,requestId] {
+            if(!socket || activeSocket_!=socket || pendingVoiceRequestId_!=requestId)return;
+            const auto action=voiceAckTracker_.timeout(requestId.toStdString());
+            if(action==streamcam::AudioEffectsAckTracker::TimeoutAction::Stale)return;
+            if(action==streamcam::AudioEffectsAckTracker::TimeoutAction::Expired) {
+                pendingVoiceRequestId_.clear();
+                stateLabel_->setText(QStringLiteral("Android no confirmó el ajuste de cancelación de eco."));
+                if(audioEffectsDirty_)sendAndroidAudioEffects();
+                return;
+            }
+            const QJsonObject retry{{QStringLiteral("type"),QStringLiteral("audio.effects")},
+                {QStringLiteral("echoCancellation"),pendingVoiceEchoCancellation_},{QStringLiteral("version"),2},
+                {QStringLiteral("request_id"),requestId}};
+            if(socket->sendTextMessage(QString::fromUtf8(QJsonDocument(retry).toJson(QJsonDocument::Compact)))<0) {
+                voiceAckTracker_.abandon(requestId.toStdString());pendingVoiceRequestId_.clear();
+                stateLabel_->setText(QStringLiteral("No se pudo reintentar el ajuste de audio en Android."));
+                return;
+            }
+            stateLabel_->setText(QStringLiteral("Android aún no confirmó el ajuste de audio · reintentando…"));
+            scheduleAudioEffectsAckTimeout(socket,requestId);
+        });
+    }
     static QLabel *addMetric(QGridLayout *layout, int column, const QString &name, const QString &value) {
         auto *card = new QGroupBox(name);
         auto *cardLayout = new QVBoxLayout(card);

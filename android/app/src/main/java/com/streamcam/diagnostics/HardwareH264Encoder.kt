@@ -33,7 +33,7 @@ internal class HardwareH264Encoder(
         require(width > 0 && height > 0 && frameRate > 0)
 
         val target=bitrate ?: targetBitrate(width,height,frameRate)
-        val info=MediaCodecList(MediaCodecList.REGULAR_CODECS).codecInfos.firstOrNull { candidate ->
+        val candidates=MediaCodecList(MediaCodecList.REGULAR_CODECS).codecInfos.filter { candidate ->
             candidate.isEncoder && candidate.isHardwareAccelerated &&
                 candidate.supportedTypes.any {it.equals(MediaFormat.MIMETYPE_VIDEO_AVC,true)} &&
                 runCatching {
@@ -42,26 +42,26 @@ internal class HardwareH264Encoder(
                         caps.videoCapabilities.areSizeAndRateSupported(width,height,frameRate.toDouble()) &&
                         caps.videoCapabilities.bitrateRange.contains(target)
                 }.getOrDefault(false)
-        } ?: error("No hay un encoder H.264 hardware compatible con esta resolución, FPS y bitrate.")
-        val capabilities=info.getCapabilitiesForType(MediaFormat.MIMETYPE_VIDEO_AVC)
-        val rateControl=capabilities.encoderCapabilities
-        val mode=when {
-            rateControl.isBitrateModeSupported(MediaCodecInfo.EncoderCapabilities.BITRATE_MODE_CBR)->MediaCodecInfo.EncoderCapabilities.BITRATE_MODE_CBR
-            rateControl.isBitrateModeSupported(MediaCodecInfo.EncoderCapabilities.BITRATE_MODE_VBR)->MediaCodecInfo.EncoderCapabilities.BITRATE_MODE_VBR
-            else->null
         }
-        val baseline=MediaCodecInfo.CodecProfileLevel.AVCProfileBaseline.takeIf {
-            capabilities.profileLevels.any { level -> level.profile==it }
-        }
-        // Some vendor encoders advertise CBR/profile support but reject those optional
-        // keys at configure time. Retry without optional keys before reporting failure.
-        val modes=listOf(mode,null).distinct()
-        val profiles=listOf(baseline,null).distinct()
+        if(candidates.isEmpty()) error("No hay un encoder H.264 hardware compatible con esta resolución, FPS y bitrate.")
         stopping.set(false)
 
         var lastError:Throwable?=null
-        for(currentMode in modes) {
-            for(profile in profiles) {
+        for(info in candidates) {
+            val capabilities=runCatching {info.getCapabilitiesForType(MediaFormat.MIMETYPE_VIDEO_AVC)}.getOrNull() ?: continue
+            val rateControl=capabilities.encoderCapabilities
+            val mode=when {
+                rateControl.isBitrateModeSupported(MediaCodecInfo.EncoderCapabilities.BITRATE_MODE_CBR)->MediaCodecInfo.EncoderCapabilities.BITRATE_MODE_CBR
+                rateControl.isBitrateModeSupported(MediaCodecInfo.EncoderCapabilities.BITRATE_MODE_VBR)->MediaCodecInfo.EncoderCapabilities.BITRATE_MODE_VBR
+                else->null
+            }
+            val baseline=MediaCodecInfo.CodecProfileLevel.AVCProfileBaseline.takeIf {
+                capabilities.profileLevels.any { level -> level.profile==it }
+            }
+            // Vendor encoders can advertise optional settings they reject at configure time.
+            val modes=listOf(mode,null).distinct()
+            val profiles=listOf(baseline,null).distinct()
+            for(currentMode in modes) for(profile in profiles) {
                 val format=MediaFormat.createVideoFormat(MediaFormat.MIMETYPE_VIDEO_AVC,width,height).apply {
                     setInteger(MediaFormat.KEY_COLOR_FORMAT,MediaCodecInfo.CodecCapabilities.COLOR_FormatSurface)
                     setInteger(MediaFormat.KEY_BIT_RATE,target)
@@ -70,14 +70,16 @@ internal class HardwareH264Encoder(
                     currentMode?.let {setInteger(MediaFormat.KEY_BITRATE_MODE,it)}
                     profile?.let {setInteger(MediaFormat.KEY_PROFILE,it)}
                 }
-                val created=MediaCodec.createByCodecName(info.name)
+                var created:MediaCodec?=null
                 var surface:Surface?=null
                 try {
-                    created.configure(format,null,null,MediaCodec.CONFIGURE_FLAG_ENCODE)
-                    surface=created.createInputSurface()
-                    created.start()
+                    val instance=MediaCodec.createByCodecName(info.name)
+                    created=instance
+                    instance.configure(format,null,null,MediaCodec.CONFIGURE_FLAG_ENCODE)
+                    surface=instance.createInputSurface()
+                    instance.start()
                     inputSurface=surface
-                    codec=created
+                    codec=instance
                     started=true
                     drainThread=Thread(::drainOutput,"StreamCam-H264-drain").apply {
                         isDaemon=true
@@ -87,7 +89,7 @@ internal class HardwareH264Encoder(
                 } catch(error:Throwable) {
                     lastError=error
                     runCatching {surface?.release()}
-                    runCatching {created.release()}
+                    runCatching {created?.release()}
                 }
             }
         }

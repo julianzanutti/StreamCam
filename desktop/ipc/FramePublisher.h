@@ -12,16 +12,7 @@ namespace streamcam {
 class FramePublisher final : public QObject {
 public:
     explicit FramePublisher(QObject *parent = nullptr) : QObject(parent) {
-        server_.setSocketOptions(QLocalServer::UserAccessOption);
-        connect(&server_, &QLocalServer::newConnection, this, [this] {
-            while (auto *socket = server_.nextPendingConnection()) {
-                if (clients_.size() >= 8) { socket->disconnectFromServer(); socket->deleteLater(); continue; }
-                clients_.insert(socket);
-                connect(socket, &QLocalSocket::disconnected, this, [this, socket] {
-                    clients_.remove(socket); socket->deleteLater();
-                });
-            }
-        });
+        connect(&server_, &QLocalServer::newConnection, this, [this] { acceptPendingConnections(); });
     }
     ~FramePublisher() override {
         server_.close();
@@ -31,13 +22,29 @@ public:
         }
         clients_.clear();
     }
-    bool start() { return server_.listen(QStringLiteral("StreamCamFrames-v1")); }
+    bool start(const QString &name=QStringLiteral("StreamCamFrames-v1"),
+               QLocalServer::SocketOptions options=QLocalServer::UserAccessOption) {
+        server_.setSocketOptions(options);
+        return server_.listen(name);
+    }
+    QString errorString() const { return server_.errorString(); }
+    QString fullServerName() const { return server_.fullServerName(); }
+    std::size_t clientCount() const { return static_cast<std::size_t>(clients_.size()); }
+    void acceptPendingConnections() {
+        while (auto *socket = server_.nextPendingConnection()) {
+            if (clients_.size() >= 8) { socket->disconnectFromServer(); socket->deleteLater(); continue; }
+            clients_.insert(socket);
+            connect(socket, &QLocalSocket::disconnected, this, [this, socket] {
+                clients_.remove(socket); socket->deleteLater();
+            });
+        }
+    }
     void clear() {
         const auto clients=clients_;
         for(auto *socket:clients)socket->abort();
     }
-    void publish(const std::shared_ptr<const VideoFrame> &frame) {
-        if (!frame || !frame->valid()) return;
+    bool publish(const std::shared_ptr<const VideoFrame> &frame) {
+        if (!frame || !frame->valid()) return false;
         QByteArray header(40, '\0');
         auto *data = reinterpret_cast<uchar *>(header.data());
         qToLittleEndian<quint32>(0x314d4353, data); // SCM1
@@ -48,14 +55,17 @@ public:
         qToLittleEndian<quint32>(static_cast<quint32>(frame->bgra.size()), data + 20);
         qToLittleEndian<quint64>(frame->timestampUs, data + 24);
         // bytes 32..39 reserved; must be zero.
+        bool delivered=false;
         for (auto *socket : clients_) {
             if (socket->bytesToWrite() != 0) continue; // drop newest for a slow consumer
             if (socket->property("hasFrame").toBool() && socket->property("lastFrameTimestamp").toLongLong()==frame->timestampUs) continue;
-            socket->write(header);
-            socket->write(reinterpret_cast<const char *>(frame->bgra.data()), static_cast<qint64>(frame->bgra.size()));
+            if(socket->write(header)!=header.size())continue;
+            if(socket->write(reinterpret_cast<const char *>(frame->bgra.data()), static_cast<qint64>(frame->bgra.size()))!=static_cast<qint64>(frame->bgra.size()))continue;
             socket->setProperty("hasFrame",true);
             socket->setProperty("lastFrameTimestamp",static_cast<qlonglong>(frame->timestampUs));
+            delivered=true;
         }
+        return delivered;
     }
 private:
     QLocalServer server_;

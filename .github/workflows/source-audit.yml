@@ -11,3 +11,123 @@ jobs:
         with:
           python-version: '3.12'
       - run: python scripts/audit-public.py
+
+  android:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.11.1'
+      - uses: android-actions/setup-android@v3
+      - name: Build APK, run Android lint and unit tests
+        working-directory: android
+        run: gradle --no-daemon :app:assembleDebug :app:lintDebug :app:testDebugUnitTest
+
+  windows-native:
+    runs-on: windows-2022
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/cache@v4
+        with:
+          path: ${{ runner.temp }}\libwebrtc-win-x64.7z
+          key: webrtc-win-x64-${{ hashFiles('desktop/media/webrtc-sdk.json') }}
+      - uses: jurplel/install-qt-action@v4
+        id: install-qt
+        with:
+          version: '6.8.3'
+          arch: 'win64_msvc2022_64'
+          cache: true
+      - name: Download and verify pinned WebRTC SDK
+        shell: pwsh
+        run: |
+          $manifest = Get-Content desktop/media/webrtc-sdk.json -Raw | ConvertFrom-Json
+          $archive = Join-Path $env:RUNNER_TEMP $manifest.asset
+          if (!(Test-Path -LiteralPath $archive)) {
+            $uri = "https://github.com/$($manifest.repository)/releases/download/$($manifest.tag)/$($manifest.asset)"
+            Invoke-WebRequest -Uri $uri -OutFile $archive
+          }
+          $actual = (Get-FileHash -LiteralPath $archive -Algorithm SHA256).Hash.ToLowerInvariant()
+          if ($actual -ne $manifest.sha256) { throw "Pinned WebRTC SDK hash mismatch: $actual" }
+          $sdkRoot = Join-Path $env:RUNNER_TEMP 'webrtc-msvc'
+          $sevenZip = Join-Path $env:ProgramFiles '7-Zip\7z.exe'
+          if (!(Test-Path -LiteralPath $sevenZip)) { throw '7-Zip is missing from the Windows runner.' }
+          New-Item -ItemType Directory -Force $sdkRoot | Out-Null
+          & $sevenZip x $archive "-o$sdkRoot" -y -bd | Out-Null
+          if ($LASTEXITCODE -ne 0 -or !(Test-Path -LiteralPath (Join-Path $sdkRoot 'release/webrtc.lib'))) {
+            throw 'Could not extract the pinned WebRTC SDK.'
+          }
+          "STREAMCAM_WEBRTC_ROOT=$sdkRoot" >> $env:GITHUB_ENV
+      - name: Configure Windows desktop
+        shell: pwsh
+        run: >-
+          cmake -S desktop/app -B "$env:RUNNER_TEMP\streamcam-desktop-build"
+          -G "Visual Studio 17 2022" -A x64
+          "-DCMAKE_PREFIX_PATH=$env:QT_ROOT_DIR"
+          "-DSTREAMCAM_WEBRTC_ROOT=$env:STREAMCAM_WEBRTC_ROOT"
+      - name: Build Windows desktop and probes
+        run: cmake --build "$env:RUNNER_TEMP\streamcam-desktop-build" --config Release
+      - name: Run Windows desktop tests
+        run: ctest --test-dir "$env:RUNNER_TEMP\streamcam-desktop-build" -C Release --output-on-failure
+      - name: Configure probes
+        run: cmake -S desktop/probes -B desktop/probes/out -G "Visual Studio 17 2022" -A x64
+      - name: Build probes
+        run: cmake --build desktop/probes/out --config Release
+      - name: Run probes
+        run: ctest --test-dir desktop/probes/out -C Release --output-on-failure
+      - name: Check out pinned OBS headers
+        uses: actions/checkout@v4
+        with:
+          repository: obsproject/obs-studio
+          ref: 33.0.1
+          path: obs-sdk-ci
+      - name: Set up MSVC tools
+        uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: x64
+      - name: Download and verify OBS 33.0.1 runtime
+        shell: pwsh
+        run: |
+          $manifest = Get-Content desktop/media/obs-sdk.json -Raw | ConvertFrom-Json
+          $archive = Join-Path $env:RUNNER_TEMP $manifest.asset
+          if (!(Test-Path -LiteralPath $archive)) {
+            $uri = "https://github.com/$($manifest.repository)/releases/download/$($manifest.tag)/$($manifest.asset)"
+            Invoke-WebRequest -Uri $uri -OutFile $archive
+          }
+          $actual = (Get-FileHash -LiteralPath $archive -Algorithm SHA256).Hash.ToLowerInvariant()
+          if ($actual -ne $manifest.sha256) { throw "Pinned OBS archive hash mismatch: $actual" }
+          Add-Type -AssemblyName System.IO.Compression.FileSystem
+          $dll = Join-Path $env:RUNNER_TEMP 'obs-msvc\bin\64bit\obs.dll'
+          New-Item -ItemType Directory -Force (Split-Path -Parent $dll) | Out-Null
+          $zip = [IO.Compression.ZipFile]::OpenRead($archive)
+          try {
+            $entry = $zip.GetEntry('bin/64bit/obs.dll')
+            if (!$entry) { throw 'Pinned OBS archive does not contain bin/64bit/obs.dll.' }
+            $source = $entry.Open()
+            $destination = [IO.File]::Create($dll)
+            try { $source.CopyTo($destination) }
+            finally { $source.Dispose(); $destination.Dispose() }
+          } finally { $zip.Dispose() }
+          "STREAMCAM_OBS_DLL=$dll" >> $env:GITHUB_ENV
+      - name: Generate OBS import library
+        shell: pwsh
+        run: |
+          ./scripts/create-obs-import-lib.ps1 `
+            -ObsDll $env:STREAMCAM_OBS_DLL `
+            -OutputLibrary "$env:RUNNER_TEMP\obs-import.lib" `
+            -OutputDefinition "$env:RUNNER_TEMP\obs-import.def"
+      - name: Configure OBS plugin
+        shell: pwsh
+        run: >-
+          cmake -S obs-plugin -B "$env:RUNNER_TEMP\streamcam-obs-build"
+          -G "Visual Studio 17 2022" -A x64
+          "-DOBS_SOURCE_ROOT=$env:GITHUB_WORKSPACE\obs-sdk-ci"
+          "-DOBS_IMPORT_LIBRARY=$env:RUNNER_TEMP\obs-import.lib"
+      - name: Build OBS plugin and probes
+        run: cmake --build "$env:RUNNER_TEMP\streamcam-obs-build" --config Release
+      - name: Run OBS plugin tests
+        run: ctest --test-dir "$env:RUNNER_TEMP\streamcam-obs-build" -C Release --output-on-failure

@@ -8,5 +8,7 @@
 - [Android QA](ANDROID_QA.md)
 - [Avisos de terceros](THIRD_PARTY.md)
 - [Estado y validación](V1_STATUS.md)
+- [Plan de desarrollo V2: auditoría, prioridades, equipo y roadmap](V2_DEVELOPMENT_PLAN.md)
+- [Revisión de seguridad V2 y firmas de distribución](SECURITY_REVIEW_V2.md)
 
 No se publican aquí las notas locales de desarrollo ni el contexto de dispositivos de prueba.

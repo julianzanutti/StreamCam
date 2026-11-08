@@ -12,7 +12,7 @@ gradle -p android --no-daemon assembleDebug lintDebug
 
 Visual Studio 2022 Build Tools con C++ x64 y CMake, Qt 6.8.3 MSVC2022 x64 (Widgets, Network y WebSockets) y libwebrtc crow-misia 152.7977.0.0 con MSVC STL. No mezclar con un SDK compilado con libc++.
 
-Descargar el SDK nativo de la [release fijada de libwebrtc](https://github.com/crow-misia/libwebrtc-bin/releases/tag/152.7977.0.0) en `.tooling/webrtc-msvc`, o pasar `STREAMCAM_WEBRTC_ROOT` a CMake. Se necesitan `include/`, `release/webrtc.lib` y los avisos de licencia.
+Descargar el asset `libwebrtc-win-x64.7z` de la [release fijada de libwebrtc](https://github.com/crow-misia/libwebrtc-bin/releases/tag/152.7977.0.0) y extraerlo en `.tooling/webrtc-msvc`, o pasar `STREAMCAM_WEBRTC_ROOT` a CMake. La versión, el asset y su SHA-256 aprobado están en [webrtc-sdk.json](desktop/media/webrtc-sdk.json). Se necesitan `include/`, `release/webrtc.lib` y los avisos de licencia.
 
 ```powershell
 ./desktop/build.ps1 -QtPath 'C:/Qt/6.8.3/msvc2022_64'
@@ -25,7 +25,7 @@ Para la identidad TLS, el paquete usa PowerShell 7 portable; un build de desarro
 
 ## Plugin OBS
 
-Usar las cabeceras de OBS 33.0.1 y una biblioteca de importación correspondiente al `obs.dll` instalado. Configurar `OBS_SOURCE_ROOT` y `OBS_IMPORT_LIBRARY` en CMake para `obs-plugin/`. El plugin se instala con OBS cerrado mediante `obs-plugin/install.ps1`.
+Usar las cabeceras de OBS 33.0.1 y una biblioteca de importación correspondiente a `obs.dll`. El workflow de Windows fija cabeceras y runtime OBS 33.0.1 en `desktop/media/obs-sdk.json`, verifica SHA-256, extrae solamente `obs.dll` del ZIP portable y genera la biblioteca con `scripts/create-obs-import-lib.ps1`. Para repetirlo localmente, tener las herramientas MSVC (`dumpbin.exe` y `lib.exe`) disponibles en `PATH` o Visual Studio instalado, y ejecutar el script indicando el DLL y rutas de salida. Configurar `OBS_SOURCE_ROOT` y `OBS_IMPORT_LIBRARY` en CMake para `obs-plugin/`. El plugin se instala con OBS cerrado mediante `obs-plugin/install.ps1`.
 
 ## Pruebas
 
@@ -38,6 +38,17 @@ python desktop/check-auth.py
 ```
 
 Para pruebas OBS, configurar `OBS_STUDIO_DIR` con la carpeta de instalación. Las pruebas de medios usan imágenes sintéticas; no sustituyen la aceptación física en un teléfono.
+
+### Loopback audiovisual con OBS portable
+
+Con OBS 33.0.1 portable extraído dentro de `.tooling`, construir el target `streamcam-source-loopback` y `StreamCamObsSyntheticMediaProbe`. El harness `scripts/check-obs-loopback.ps1` modifica únicamente el perfil portable indicado, crea una fuente vía WebSocket y envía audio/cuadros sintéticos por named pipes QA separados de producción. No inicia stream ni grabación. El test desactiva la autenticación WebSocket solo en ese perfil temporal; no apuntarlo a una instalación de OBS de uso diario.
+
+```powershell
+./scripts/check-obs-loopback.ps1 `
+  -ObsRoot '.tooling/OBS-Studio-33.0.1-portable-test' `
+  -PluginDll 'desktop/out-v2/obs-plugin-v2/Release/streamcam-source-loopback.dll' `
+  -SyntheticMediaProbe 'desktop/probes/out/Release/StreamCamObsSyntheticMediaProbe.exe'
+```
 
 En Windows, después de compilar, ejecutá `./scripts/check-identity-policy.ps1` para reproducir el bloqueo de un script descargado bajo AllSigned y comprobar que StreamCam crea y recarga su identidad sin cambiar la política permanente del equipo. La prueba usa una identidad temporal, sin tocar los teléfonos vinculados.
 

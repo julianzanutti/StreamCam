@@ -39,8 +39,15 @@ public:
     }
     void remember(const QString &id,const QByteArray &key) {
         auto devices=read();
-        if(devices.size()>=64 && !devices.contains(id))throw std::runtime_error("Device limit reached");
-        if(revoked(id))throw std::runtime_error("Device revoked");
+        const auto existing = devices.value(id).toObject();
+        if(existing.value(QStringLiteral("revoked")).toBool())throw std::runtime_error("Device revoked");
+        const bool alreadyActive = devices.contains(id);
+        if(!alreadyActive) {
+            int activeCount = 0;
+            for(auto it=devices.begin();it!=devices.end();++it)
+                if(!it.value().toObject().value(QStringLiteral("revoked")).toBool()) ++activeCount;
+            if(activeCount>=64)throw std::runtime_error("Device limit reached");
+        }
         devices.insert(id,QJsonObject{{QStringLiteral("key"),QString::fromLatin1(key.toBase64())},{QStringLiteral("revoked"),false}});
         write(devices);
     }

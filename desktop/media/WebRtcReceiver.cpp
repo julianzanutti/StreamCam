@@ -1,5 +1,8 @@
 #include "WebRtcReceiver.h"
 #include "MfH264Decoder.h"
+#include "UsbAudioPacket.h"
+#include "UsbH264DecodeQueue.h"
+#include "AudioSignalMonitor.h"
 #include <api/create_peerconnection_factory.h>
 #include <api/make_ref_counted.h>
 #include <api/set_local_description_observer_interface.h>
@@ -29,6 +32,8 @@
 #include <atomic>
 #include <stdexcept>
 #include <cstdio>
+#include <limits>
+#include <thread>
 
 namespace streamcam {
 namespace {
@@ -92,8 +97,9 @@ public:
     WebRtcReceiver *owner;
     std::shared_ptr<std::atomic_bool> alive=std::make_shared<std::atomic_bool>(true);
     webrtc::WinsockInitializer winsock;
-    LatestFrame frames;
-    LatestAudio audioFrames;
+    std::shared_ptr<LatestFrame> frames=std::make_shared<LatestFrame>();
+    std::shared_ptr<LatestAudio> audioFrames=std::make_shared<LatestAudio>();
+    AudioSignalMonitor audioSignal;
     std::atomic<std::uint64_t> receivedCount{0};
     std::unique_ptr<webrtc::Thread> network;
     std::unique_ptr<webrtc::Thread> signaling;
@@ -105,7 +111,8 @@ public:
     webrtc::scoped_refptr<webrtc::PeerConnectionInterface> peer;
     webrtc::scoped_refptr<webrtc::VideoTrackInterface> track;
     webrtc::scoped_refptr<webrtc::AudioTrackInterface> audioTrack;
-    std::unique_ptr<MfH264Decoder> usbDecoder;
+    UsbH264DecodeQueue usbDecodeQueue;
+    std::thread usbDecodeThread;
     bool remoteReady = false;
     std::vector<std::unique_ptr<webrtc::IceCandidate>> pendingCandidates;
     explicit Impl(WebRtcReceiver *parent, const QString &localAddress) : owner(parent) {
@@ -141,16 +148,18 @@ public:
         std::puts("receiver: peer created"); std::fflush(stdout);
         if (!result.ok()) throw std::runtime_error("Cannot create receiver peer");
         peer = result.MoveValue();
+        usbDecodeThread=std::thread([this] { decodeUsbLoop(); });
     }
     ~Impl() {
         alive->store(false);
-        worker->BlockingCall([&] { usbDecoder.reset(); });
+        usbDecodeQueue.close();
+        if(usbDecodeThread.joinable()) usbDecodeThread.join();
         if (track) track->RemoveSink(this);
         if (audioTrack) audioTrack->RemoveSink(this);
         if (peer) peer->Close();
         track = nullptr; audioTrack = nullptr; peer = nullptr; factory = nullptr;
         network->BlockingCall([&] { networkManager.reset(); socketFactory.reset(); });
-        signaling->Stop(); worker->Stop(); network->Stop(); frames.clear(); audioFrames.clear();
+        signaling->Stop(); worker->Stop(); network->Stop(); frames->clear(); audioFrames->clear();
     }
     void notify(const QString &text) {
         QMetaObject::invokeMethod(owner, [parent = owner, text, valid=alive] { if(valid->load())emit parent->statusChanged(text); }, Qt::QueuedConnection);
@@ -196,7 +205,7 @@ public:
     void OnConnectionChange(webrtc::PeerConnectionInterface::PeerConnectionState state) override {
         if(state==webrtc::PeerConnectionInterface::PeerConnectionState::kDisconnected ||
             state==webrtc::PeerConnectionInterface::PeerConnectionState::kFailed ||
-            state==webrtc::PeerConnectionInterface::PeerConnectionState::kClosed) { frames.clear(); audioFrames.clear(); }
+            state==webrtc::PeerConnectionInterface::PeerConnectionState::kClosed) { frames->clear(); audioFrames->clear(); }
         switch(state) {
         case webrtc::PeerConnectionInterface::PeerConnectionState::kNew: notify(QStringLiteral("Preparando video")); break;
         case webrtc::PeerConnectionInterface::PeerConnectionState::kConnecting: notify(QStringLiteral("Conectando video…")); break;
@@ -219,55 +228,97 @@ public:
             track->AddOrUpdateSink(this, webrtc::VideoSinkWants());
         } else if(remote && remote->kind() == webrtc::MediaStreamTrackInterface::kAudioKind) {
             audioTrack=static_cast<webrtc::AudioTrackInterface *>(remote.get());
+            audioSignal.reset();
             audioTrack->AddSink(this);
         }
     }
     void OnData(const void *data,int bits,int rate,size_t channels,size_t frames,std::optional<int64_t> timestampMs) override {
         if(!data || bits!=16 || rate!=48000 || (channels!=1 && channels!=2) || frames==0 || frames>960)return;
+        audioSignal.observe(steadyNowNs());
         auto frame=std::make_shared<AudioFrame>(); frame->sampleRate=rate; frame->channels=static_cast<uint32_t>(channels);
-        frame->frames=static_cast<uint32_t>(frames); frame->timestampUs=timestampMs ? static_cast<uint64_t>(*timestampMs)*1000ULL :
-            static_cast<uint64_t>(std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::steady_clock::now().time_since_epoch()).count());
-        const auto *samples=static_cast<const int16_t *>(data); frame->pcm.assign(samples,samples+frames*channels); audioFrames.publish(std::move(frame));
+        frame->frames=static_cast<uint32_t>(frames);
+        if(timestampMs && *timestampMs>=0 && *timestampMs<=std::numeric_limits<std::int64_t>::max()/1000)
+            frame->timestampUs=static_cast<std::uint64_t>(*timestampMs)*1000ULL;
+        else frame->timestampUs=static_cast<std::uint64_t>(std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::steady_clock::now().time_since_epoch()).count());
+        const auto *samples=static_cast<const int16_t *>(data);
+        frame->pcm.assign(samples,samples+frames*channels);
+        audioFrames->publish(std::move(frame));
     }
     int32_t Decoded(webrtc::VideoFrame &frame) override { OnFrame(frame); return 0; }
+    void decodeUsbLoop() {
+        std::unique_ptr<MfH264Decoder> decoder;
+        int decoderWidth=0, decoderHeight=0;
+        while(auto packet=usbDecodeQueue.waitPop()) {
+            if(!decoder || decoderWidth!=packet->width || decoderHeight!=packet->height) {
+                decoder.reset();
+                auto next=std::make_unique<MfH264Decoder>();
+                webrtc::VideoDecoder::Settings settings;
+                settings.set_max_render_resolution({packet->width,packet->height});
+                if(!next->Configure(settings)) {
+                    notify(QStringLiteral("No se pudo iniciar el decoder H.264 USB para %1 × %2").arg(packet->width).arg(packet->height));
+                    usbDecodeQueue.requireKeyframe();
+                    continue;
+                }
+                next->RegisterDecodeCompleteCallback(this);
+                decoderWidth=packet->width; decoderHeight=packet->height; decoder=std::move(next);
+            }
+            webrtc::EncodedImage image;
+            image.SetEncodedData(webrtc::EncodedImageBuffer::Create(packet->bytes.data(),packet->bytes.size()));
+            image.SetRtpTimestamp(packet->rtpTimestamp);
+            image.capture_time_ms_ = static_cast<std::int64_t>(std::min<std::uint64_t>(
+                packet->timestampUs / 1000, static_cast<std::uint64_t>(std::numeric_limits<std::int64_t>::max())));
+            if (packet->timestampUs <= static_cast<std::uint64_t>(std::numeric_limits<std::int64_t>::max()))
+                image.SetPresentationTimestamp(webrtc::Timestamp::Micros(static_cast<std::int64_t>(packet->timestampUs)));
+            if(decoder->Decode(image,false,0)<0) {
+                decoder.reset(); decoderWidth=0; decoderHeight=0;
+                usbDecodeQueue.requireKeyframe();
+                notify(QStringLiteral("Se resincroniza el decoder H.264 USB en el próximo keyframe"));
+            }
+        }
+        decoder.reset();
+    }
     void receiveUsb(const QByteArray &packet) {
-        if(packet.size()>=32 && qFromLittleEndian<quint32>(reinterpret_cast<const uchar *>(packet.constData()))==0x31414353) {
-            const auto *data=reinterpret_cast<const uchar *>(packet.constData());
-            const auto rate=qFromLittleEndian<quint32>(data+8),channels=qFromLittleEndian<quint32>(data+12),frames=qFromLittleEndian<quint32>(data+16);
-            const auto timestamp=qFromLittleEndian<quint64>(data+20); const auto reserved=qFromLittleEndian<quint32>(data+28);
-            if(qFromLittleEndian<quint32>(data+4)!=1 || rate!=48000 || channels!=1 || frames==0 || frames>960 || reserved || packet.size()!=32+static_cast<qsizetype>(frames*channels*2))throw std::runtime_error("Invalid USB audio packet");
-            auto audio=std::make_shared<AudioFrame>(); audio->sampleRate=rate; audio->channels=channels; audio->frames=frames; audio->timestampUs=timestamp;
-            audio->pcm.resize(static_cast<size_t>(frames)*channels); memcpy(audio->pcm.data(),data+32,audio->pcm.size()*sizeof(int16_t)); audioFrames.publish(std::move(audio)); return;
+        const auto *raw = packet.constData();
+        const auto *bytes = reinterpret_cast<const std::uint8_t *>(raw);
+        if (packet.size() >= 4 && qFromLittleEndian<quint32>(bytes) == 0x31414353) {
+            const auto decoded = parseUsbAudioPacket(raw, static_cast<std::size_t>(packet.size()));
+            if (!decoded) throw std::runtime_error("Invalid USB audio packet");
+            // Keep the same signal watchdog for USB PCM and WebRTC audio packets.
+            audioSignal.observe(steadyNowNs());
+            auto audio=std::make_shared<AudioFrame>(); audio->sampleRate=decoded->sampleRate; audio->channels=decoded->channels;
+            audio->frames=decoded->frames; audio->timestampUs=decoded->timestampUs;
+            audio->pcm.resize(static_cast<size_t>(decoded->frames)*decoded->channels);
+            memcpy(audio->pcm.data(), decoded->pcm, decoded->pcmBytes); audioFrames->publish(std::move(audio)); return;
         }
         if(packet.size()<21 || packet.size()>2*1024*1024+20)throw std::runtime_error("Invalid USB frame");
         const auto *data=reinterpret_cast<const uchar *>(packet.constData());
         const auto width=qFromLittleEndian<quint32>(data+4), height=qFromLittleEndian<quint32>(data+8);
         if(qFromLittleEndian<quint32>(data)!=0x31484353 || width<16 || width>1920 || height<16 || height>1080)
             throw std::runtime_error("Invalid USB format");
-        worker->BlockingCall([&] {
-            if(!usbDecoder) {
-                usbDecoder=std::make_unique<MfH264Decoder>();
-                webrtc::VideoDecoder::Settings settings;
-                if(!usbDecoder->Configure(settings)) { usbDecoder.reset(); throw std::runtime_error("USB decoder unavailable"); }
-                usbDecoder->RegisterDecodeCompleteCallback(this);
-            }
-            webrtc::EncodedImage image;
-            image.SetEncodedData(webrtc::EncodedImageBuffer::Create(data+20,packet.size()-20));
-            const auto timestamp=qFromLittleEndian<quint64>(data+12);
-            image.SetRtpTimestamp(static_cast<uint32_t>((timestamp/1000)*90));
-            usbDecoder->Decode(image,false,0);
-        });
+        UsbEncodedVideo frame;
+        frame.width=static_cast<int>(width); frame.height=static_cast<int>(height);
+        const auto timestamp=qFromLittleEndian<quint64>(data+12);
+        frame.timestampUs=timestamp;
+        frame.rtpTimestamp=static_cast<std::uint32_t>((timestamp/1000)*90);
+        frame.bytes.assign(data+20,data+packet.size());
+        usbDecodeQueue.push(std::move(frame));
+    }
+    static std::uint64_t steadyNowNs() {
+        return static_cast<std::uint64_t>(std::chrono::duration_cast<std::chrono::nanoseconds>(
+            std::chrono::steady_clock::now().time_since_epoch()).count());
     }
     void OnFrame(const webrtc::VideoFrame &incoming) override {
         const auto buffer = incoming.video_frame_buffer()->ToI420();
         if (!buffer || buffer->width() > 1920 || buffer->height() > 1080) return;
         auto frame = std::make_shared<VideoFrame>();
         frame->width = buffer->width(); frame->height = buffer->height(); frame->stride = frame->width * 4;
-        frame->timestampUs = static_cast<std::int64_t>(incoming.rtp_timestamp()) * 1000000 / 90000;
+        const auto captureTimestampUs=incoming.timestamp_us();
+        if(captureTimestampUs<0)return;
+        frame->timestampUs=static_cast<std::uint64_t>(captureTimestampUs);
         frame->bgra.resize(frame->stride * frame->height);
         libyuv::I420ToARGB(buffer->DataY(), buffer->StrideY(), buffer->DataU(), buffer->StrideU(),
             buffer->DataV(), buffer->StrideV(), frame->bgra.data(), frame->stride, frame->width, frame->height);
-        frames.publish(std::move(frame));
+        frames->publish(std::move(frame));
         ++receivedCount;
     }
 };
@@ -279,7 +330,17 @@ void WebRtcReceiver::receive(const QJsonObject &message) {
 void WebRtcReceiver::receiveUsb(const QByteArray &packet) { if(impl_)impl_->receiveUsb(packet); }
 void WebRtcReceiver::reset(const QString &address) { impl_.reset(); impl_=std::make_unique<Impl>(this,address); }
 void WebRtcReceiver::stop() { impl_.reset(); }
-std::shared_ptr<const VideoFrame> WebRtcReceiver::latestFrame() const { return impl_ ? impl_->frames.read() : nullptr; }
-std::shared_ptr<const AudioFrame> WebRtcReceiver::latestAudio() const { return impl_ ? impl_->audioFrames.read() : nullptr; }
+std::shared_ptr<const VideoFrame> WebRtcReceiver::latestFrame() const { return impl_ ? impl_->frames->read() : nullptr; }
+std::shared_ptr<LatestFrame> WebRtcReceiver::frameSource() const { return impl_ ? impl_->frames : nullptr; }
+std::shared_ptr<LatestAudio> WebRtcReceiver::audioSource() const { return impl_ ? impl_->audioFrames : nullptr; }
+std::vector<std::shared_ptr<const AudioFrame>> WebRtcReceiver::drainAudio(std::size_t maximum) { return impl_ ? impl_->audioFrames->drain(maximum) : std::vector<std::shared_ptr<const AudioFrame>>{}; }
+std::uint64_t WebRtcReceiver::droppedAudioFrames() const { return impl_ ? impl_->audioFrames->dropped() : 0; }
+std::size_t WebRtcReceiver::queuedAudioFrames() const { return impl_ ? impl_->audioFrames->queuedFrames() : 0; }
+bool WebRtcReceiver::audioUnderflow() const {
+    if (!impl_) return false;
+    const auto nowNs=static_cast<std::uint64_t>(std::chrono::duration_cast<std::chrono::nanoseconds>(
+        std::chrono::steady_clock::now().time_since_epoch()).count());
+    return impl_->audioSignal.underflow(nowNs);
+}
 std::uint64_t WebRtcReceiver::receivedFrameCount() const { return impl_ ? impl_->receivedCount.load() : 0; }
 }

@@ -1,0 +1,56 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://streamcam.invalid/protocol/control-v2.schema.json",
+  "title": "StreamCam negotiated control extensions v2",
+  "description": "Optional post-pairing capability negotiation. Either peer may initiate control.hello; each hello is answered with control.ready containing the same capability intersection. Both peers may initiate simultaneously, in which case each validates the matching ready response independently. Existing rtc and media.stop messages remain direct wire-v1 objects. A peer sends v2 controls only after the intersection is confirmed.",
+  "oneOf": [
+    { "$ref": "#/$defs/controlHello" },
+    { "$ref": "#/$defs/controlReady" },
+    { "$ref": "#/$defs/audioEffects" },
+    { "$ref": "#/$defs/audioEffectsAck" }
+  ],
+  "$defs": {
+    "controlHello": {
+      "type": "object",
+      "required": ["type", "version", "capabilities"],
+      "properties": {
+        "type": { "const": "control.hello" },
+        "version": { "const": 2 },
+        "capabilities": { "type": "array", "maxItems": 16, "uniqueItems": true, "items": { "type": "string", "maxLength": 64 } }
+      },
+      "additionalProperties": false
+    },
+    "controlReady": {
+      "type": "object",
+      "required": ["type", "version", "capabilities"],
+      "properties": {
+        "type": { "const": "control.ready" },
+        "version": { "const": 2 },
+        "capabilities": { "type": "array", "maxItems": 16, "uniqueItems": true, "items": { "type": "string", "maxLength": 64 } }
+      },
+      "additionalProperties": false
+    },
+    "audioEffects": {
+      "type": "object",
+      "required": ["type", "echoCancellation", "version", "request_id"],
+      "properties": {
+        "type": { "const": "audio.effects" },
+        "echoCancellation": { "type": "boolean" },
+        "version": { "const": 2 },
+        "request_id": { "type": "string", "pattern": "^[0-9a-fA-F]{32}$" }
+      },
+      "additionalProperties": false
+    },
+    "audioEffectsAck": {
+      "type": "object",
+      "required": ["type", "version", "request_id", "ok"],
+      "properties": {
+        "type": { "const": "audio.effects.ack" },
+        "version": { "const": 2 },
+        "request_id": { "type": "string", "pattern": "^[0-9a-fA-F]{32}$" },
+        "ok": { "type": "boolean" }
+      },
+      "additionalProperties": false
+    }
+  }
+}

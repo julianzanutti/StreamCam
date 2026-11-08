@@ -19,6 +19,7 @@ internal class PairingClient(
     private val onPaired: () -> Unit = {},
     private val onSignal: (JSONObject) -> Unit = {},
     private val onDisconnected: () -> Unit = {},
+    private val onUsbCodeReceived: (String) -> Unit = {},
     private val reconnect: Boolean = false
 ) : AutoCloseable {
     private var socket: WebSocket? = null
@@ -26,6 +27,23 @@ internal class PairingClient(
     val usb: Boolean get() = invitation.endpoint.host=="127.0.0.1"
     val localAddress: String get() = localSockets.localAddress
     @Volatile private var paired = false
+    private val controlNegotiation = ControlNegotiationState()
+    @Volatile private var controlV2Ready = false
+    @Volatile private var controlV2AckNegotiated = false
+    @Volatile private var pendingUsbChallenge: String? = null
+
+    private fun parseControlCapabilities(message: JSONObject, isPaired: Boolean, expectedType: String): Set<String>? {
+        if(!isPaired || message.optString("type")!="control.$expectedType" || message.optInt("version")!=2 || message.length()!=3)
+            return null
+        val array=message.optJSONArray("capabilities") ?: return null
+        if(array.length()>16)return null
+        val result=LinkedHashSet<String>()
+        for(index in 0 until array.length()) {
+            val capability=array.opt(index)
+            if(capability !is String || capability.isEmpty() || capability.length>64 || !result.add(capability))return null
+        }
+        return result
+    }
     private val trust = object : X509TrustManager {
         override fun getAcceptedIssuers(): Array<X509Certificate> = emptyArray()
         override fun checkClientTrusted(chain: Array<X509Certificate>, authType: String) =
@@ -90,16 +108,19 @@ internal class PairingClient(
             }
             override fun onMessage(webSocket: WebSocket, text: String) {
                 if (text.toByteArray().size > 131072) { webSocket.close(1009, "Message too large"); return }
-                val type = runCatching { JSONObject(text).getString("type") }.getOrNull()
+                val message = runCatching { JSONObject(text) }.getOrNull()
+                val type = runCatching { message?.getString("type") }.getOrNull()
+                android.util.Log.d("StreamCamPairing","WebSocket message received")
                 try { when (type) {
                     "pair.pending" -> onStatus("Confirmá la vinculación en la ventana de StreamCam en Windows.")
                     "usb.challenge" -> {
-                        val challenge=JSONObject(text).getString("challenge")
-                        check(usb && !paired && challenge.matches(Regex("[A-Za-z0-9_-]{43}")))
-                        val identity=DeviceIdentity()
-                        val proof="StreamCam USB v1\n${invitation.pcId}\n$challenge".toByteArray(Charsets.UTF_8)
-                        webSocket.send(JSONObject().put("version",1).put("type","usb.proof")
-                            .put("device_id",identity.id).put("device_proof",identity.sign(proof)).toString())
+                        val message=JSONObject(text)
+                        val challenge=message.getString("challenge")
+                        val code=message.getString("verification_code")
+                        check(usb && !paired && pendingUsbChallenge==null && challenge.matches(Regex("[A-Za-z0-9_-]{43}")) && code.matches(Regex("[0-9]{6}")))
+                        pendingUsbChallenge=challenge
+                        android.util.Log.d("StreamCamPairing","USB challenge validated")
+                        onUsbCodeReceived(code)
                     }
                     "reconnect.challenge" -> {
                         val challenge=runCatching { JSONObject(text).getString("challenge") }.getOrNull()
@@ -113,7 +134,65 @@ internal class PairingClient(
                     }
                     "pair.accepted" -> {
                         if (paired) { webSocket.close(1002, "Duplicate acceptance"); return }
-                        paired = true; onStatus("PC verificada y autorizada."); onPaired()
+                        paired = true
+                        controlNegotiation.markPaired()
+                        val accepted=checkNotNull(message)
+                        if(accepted.has("control_version")) {
+                            val capabilities=accepted.optJSONArray("capabilities")
+                            if(accepted.optInt("control_version")!=2 || accepted.length()!=3 || capabilities==null || capabilities.length()>16) {
+                                webSocket.close(1002,"Unsupported control protocol"); return
+                            }
+                            val advertised=HashSet<String>()
+                            for(index in 0 until capabilities.length()) {
+                                val capability=capabilities.opt(index)
+                                if(capability !is String || capability.length>64 || !advertised.add(capability)) {
+                                    webSocket.close(1002,"Invalid control capability"); return
+                                }
+                            }
+                            controlNegotiation.startLocalHello(setOf(ControlNegotiationState.AUDIO_EFFECTS_ACK))
+                            check(webSocket.send(JSONObject().put("type","control.hello").put("version",2)
+                                .put("capabilities",org.json.JSONArray().put(ControlNegotiationState.AUDIO_EFFECTS_ACK)).toString()))
+                        }
+                        // The peer may initiate an optional control-v2 handshake after pairing.
+                        onStatus("PC verificada y autorizada."); onPaired()
+                    }
+                    "control.hello" -> {
+                        val hello=checkNotNull(message)
+                        val seen=parseControlCapabilities(hello, paired, "hello") ?: run {
+                            webSocket.close(1002,"Invalid control negotiation"); return
+                        }
+                        val intersection=try { controlNegotiation.receiveHello(seen) }
+                            catch (_: Exception) { webSocket.close(1002,"Invalid control negotiation"); return }
+                        controlV2AckNegotiated=ControlNegotiationState.AUDIO_EFFECTS_ACK in intersection
+                        check(webSocket.send(JSONObject().put("type","control.ready").put("version",2)
+                            .put("capabilities",if(controlV2AckNegotiated) org.json.JSONArray().put("audio.effects.ack") else org.json.JSONArray()).toString()))
+                        controlNegotiation.markLocalReadySent(intersection)
+                        controlV2Ready=controlNegotiation.ready
+                    }
+                    "control.ready" -> {
+                        val ready=checkNotNull(message)
+                        val negotiated=parseControlCapabilities(ready, paired, "ready") ?: run {
+                            webSocket.close(1002,"Invalid control intersection"); return
+                        }
+                        val intersection=try { controlNegotiation.receiveReady(negotiated) }
+                            catch (_: Exception) { webSocket.close(1002,"Invalid control intersection"); return }
+                        controlV2AckNegotiated=ControlNegotiationState.AUDIO_EFFECTS_ACK in intersection
+                        controlV2Ready=controlNegotiation.ready
+                    }
+                    "audio.effects" -> {
+                        val effects=checkNotNull(message)
+                        if(!paired || effects.opt("echoCancellation") !is Boolean ||
+                            (effects.has("request_id") && (!controlV2Ready || !controlV2AckNegotiated))) {
+                            webSocket.close(1002,"Invalid audio effects command"); return
+                        }
+                        if(effects.has("request_id") && (!controlV2Ready || !controlV2AckNegotiated || effects.optInt("version")!=2 ||
+                            !Regex("[0-9a-fA-F]{32}").matches(effects.optString("request_id")))) {
+                            webSocket.close(1002,"Invalid audio effects request"); return
+                        }
+                        if(!effects.has("request_id") && effects.has("version")) {
+                            webSocket.close(1002,"Unexpected audio effects version"); return
+                        }
+                        onSignal(effects)
                     }
                     "rtc.answer", "rtc.ice" -> runCatching {
                         check(paired); onSignal(JSONObject(text))
@@ -122,7 +201,8 @@ internal class PairingClient(
                     }
                     "pair.rejected" -> { onStatus(if(usb)"La PC rechazó la conexión USB. Reconectá desde Windows." else "La PC rechazó la invitación. Generá otro QR."); webSocket.close(1000, "Rejected") }
                     else -> { onStatus("Respuesta de pairing inválida."); webSocket.close(1002, "Invalid message") }
-                } } catch (_: Exception) {
+                } } catch (error: Exception) {
+                    android.util.Log.e("StreamCamPairing","Message handling failed: ${error.javaClass.simpleName}")
                     onStatus("No se pudo verificar la reconexión segura.")
                     webSocket.close(1011,"Identity operation failed")
                     onDisconnected()
@@ -132,6 +212,7 @@ internal class PairingClient(
                 android.util.Log.e("StreamCamPairing","Failure: ${t.javaClass.simpleName}; cause=${t.cause?.javaClass?.simpleName}; frames="+
                     t.stackTrace.take(6).joinToString(" > ") { it.className+"."+it.methodName })
                 paired = false
+                controlNegotiation.reset();controlV2Ready=false;controlV2AckNegotiated=false
                 val message = if(usb)when(t) {
                     is javax.net.ssl.SSLException -> "La identidad de la PC USB no coincide. Volvé a conectar desde Windows."
                     is java.net.SocketTimeoutException -> "La PC USB no respondió. Pulsá Conectar por USB en Windows."
@@ -147,6 +228,7 @@ internal class PairingClient(
             }
             override fun onClosed(webSocket: WebSocket, code: Int, reason: String) {
                 paired = false
+                controlNegotiation.reset();controlV2Ready=false;controlV2AckNegotiated=false
                 onStatus("Conexión con la PC cerrada.")
                 onDisconnected()
             }
@@ -156,6 +238,28 @@ internal class PairingClient(
     fun sendSignal(message: JSONObject) {
         check(paired) { "Pairing requerido." }
         check(socket?.send(message.toString()) == true) { "Conexión de señalización cerrada." }
+    }
+
+    fun acknowledgeAudioEffects(command: JSONObject, ok: Boolean) {
+        val requestId=command.optString("request_id")
+        if(!paired || !controlV2Ready || !controlV2AckNegotiated || !Regex("[0-9a-fA-F]{32}").matches(requestId)) return
+        check(socket?.send(JSONObject().put("type","audio.effects.ack").put("version",2)
+            .put("request_id",requestId).put("ok",ok).toString())==true) { "Conexión de control cerrada." }
+    }
+
+    fun confirmUsbCode() {
+        val challenge=pendingUsbChallenge ?: error("No hay una verificación USB pendiente")
+        pendingUsbChallenge=null
+        val identity=DeviceIdentity()
+        val proof="StreamCam USB v1\n${invitation.pcId}\n$challenge".toByteArray(Charsets.UTF_8)
+        check(socket?.send(JSONObject().put("version",1).put("type","usb.proof")
+            .put("device_id",identity.id).put("device_proof",identity.sign(proof)).toString())==true) { "Conexión USB cerrada" }
+        android.util.Log.d("StreamCamPairing","Signed USB proof queued")
+        onStatus("Código comparado. Esperando confirmación en Windows…")
+    }
+    fun cancelUsbCode() {
+        pendingUsbChallenge=null
+        socket?.close(1000,"Verification cancelled")
     }
 
     fun sendVideo(data:ByteArray) {
@@ -171,7 +275,8 @@ internal class PairingClient(
         check(active.send(okio.ByteString.of(*data))) { "USB cerrado" }
     }
     override fun close() {
-        paired = false
+        paired = false; pendingUsbChallenge=null
+        controlNegotiation.reset();controlV2Ready=false;controlV2AckNegotiated=false
         socket?.cancel(); socket = null
         client.dispatcher.cancelAll()
         client.connectionPool.evictAll()

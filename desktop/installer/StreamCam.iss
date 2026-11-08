@@ -1,5 +1,5 @@
 #ifndef AppVersion
-  #define AppVersion "0.2.2-preview"
+  #define AppVersion "0.3.14-preview"
 #endif
 #ifndef PackageDir
   #define PackageDir "..\..\dist\StreamCam-preview"
@@ -7,12 +7,20 @@
 #ifndef OutputDirPath
   #define OutputDirPath "..\..\dist"
 #endif
+#ifndef FileVersion
+  #define FileVersion "0.3.14.0"
+#endif
+#ifdef SmokeAppId
+  #define EffectiveAppId SmokeAppId
+#else
+  #define EffectiveAppId "{{D8C48776-49C9-4B11-986A-21CB99676586}"
+#endif
 
 [Setup]
-AppId={{D8C48776-49C9-4B11-986A-21CB99676586}
+AppId={#EffectiveAppId}
 AppName=StreamCam
 AppVersion={#AppVersion}
-VersionInfoVersion=0.2.2.0
+VersionInfoVersion={#FileVersion}
 AppPublisher=StreamCam
 AppPublisherURL=https://github.com/julianzanutti/StreamCam
 AppSupportURL=https://github.com/julianzanutti/StreamCam/issues
@@ -24,7 +32,11 @@ ArchitecturesAllowed=x64compatible
 ArchitecturesInstallIn64BitMode=x64compatible
 MinVersion=10.0
 OutputDir={#OutputDirPath}
+#ifdef SmokeAppId
+OutputBaseFilename=StreamCam-{#AppVersion}-isolated-smoke-setup
+#else
 OutputBaseFilename=StreamCam-{#AppVersion}-windows-x64-setup
+#endif
 Compression=lzma2/fast
 SolidCompression=yes
 WizardStyle=modern

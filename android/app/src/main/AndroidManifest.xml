@@ -3,8 +3,13 @@
     <uses-feature android:name="android.hardware.microphone" android:required="false" />
     <uses-permission android:name="android.permission.CAMERA" />
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
+    <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />
+    <!-- Only needed when the user selects an already-connected Bluetooth microphone. -->
+    <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
     <!-- Only the visible pairing flow connects to the QR-selected PC over pinned TLS. -->
     <uses-permission android:name="android.permission.INTERNET" />
+    <!-- Used only after the user checks for and confirms an APK update. -->
+    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
     <!-- WebRTC NetworkMonitor needs this normal permission when the user starts video. -->
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
 
@@ -22,6 +27,10 @@
         android:theme="@android:style/Theme.Material.Light.NoActionBar"
         android:usesCleartextTraffic="false">
         <service android:name=".CameraStreamingService" android:exported="false" android:foregroundServiceType="camera|microphone" />
+        <provider android:name="androidx.core.content.FileProvider" android:authorities="${applicationId}.updateprovider"
+            android:exported="false" android:grantUriPermissions="true">
+            <meta-data android:name="android.support.FILE_PROVIDER_PATHS" android:resource="@xml/update_file_paths" />
+        </provider>
         <activity android:name=".QrCaptureActivity" android:exported="false"
             android:theme="@style/Theme.StreamCam" />
         <activity android:launchMode="singleTop" android:name=".PairingActivity" android:theme="@style/Theme.StreamCam" android:exported="true">

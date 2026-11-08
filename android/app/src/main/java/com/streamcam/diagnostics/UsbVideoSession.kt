@@ -10,16 +10,21 @@ import java.util.concurrent.atomic.AtomicBoolean
 
 /** Optional H.264 video and PCM microphone over the paired TLS WebSocket carried by adb reverse. */
 internal class UsbVideoSession(private val context:Context,private val video:VideoSettings?,audioEnabled:Boolean,
+    private val audioSettings:AudioInputSettings,
     private val sendVideo:(ByteArray)->Unit,private val sendAudio:(ByteArray)->Unit,
     private val status:(String)->Unit,private val fatal:(String)->Unit):AutoCloseable {
     private val closed=AtomicBoolean(false)
     private val failed=AtomicBoolean(false)
+    @Volatile private var activeMicrophoneStatus:String?=null
     private val thread=video?.let { HandlerThread("StreamCamUsbCamera").apply { start() } }
     private val handler=thread?.looper?.let(::Handler)
     private var camera:CameraDevice?=null
     private var session:CameraCaptureSession?=null
     private val encoder=video?.let { settings -> HardwareH264Encoder(settings.width,settings.height,settings.fps,
-        onStats={_,fps,kbps->status("USB ADB · H.264 · %.1f fps · %.2f Mbps".format(fps,kbps/1000.0))},
+        onStats={codec,fps,kbps->
+            val microphone=activeMicrophoneStatus?.let { " · $it" } ?: ""
+            status("USB ADB · $codec · ${video?.cameraId ?: ""} · ${video?.width} × ${video?.height} · %.1f fps · %.2f Mbps%s".format(fps,kbps/1000.0,microphone))
+        },
         onError={fail("Falló el encoder USB. Detené y reconectá.")},bitrate=settings.bitrate,
         onEncoded={data,time,_->
             if(!closed.get()) {
@@ -29,7 +34,11 @@ internal class UsbVideoSession(private val context:Context,private val video:Vid
                 sendVideo(packet)
             }
         }) }
-    private val audio=if(audioEnabled)UsbAudioCapture(sendAudio) { message->fail(message) } else null
+    private val audio=if(audioEnabled)UsbAudioCapture(audioSettings,sendAudio,
+        onError={message->fail(message)},onMicrophones={message->
+            activeMicrophoneStatus=message
+            status("USB ADB · $message")
+        }) else null
 
     private fun fail(message:String) {
         if(!closed.get() && failed.compareAndSet(false,true))fatal(message)
@@ -39,13 +48,11 @@ internal class UsbVideoSession(private val context:Context,private val video:Vid
         audio?.start()
         val settings=video
         if(settings==null) { status("USB ADB · micrófono · PCM 48 kHz"); return }
-        settings.requireSupported(context)
+        settings.requireSupported(context,usb=true)
         val activeEncoder=checkNotNull(encoder)
         activeEncoder.start()
         val manager=context.getSystemService(CameraManager::class.java)
-        val facing=if(settings.front)CameraCharacteristics.LENS_FACING_FRONT else CameraCharacteristics.LENS_FACING_BACK
-        val id=manager.cameraIdList.firstOrNull { manager.getCameraCharacteristics(it).get(CameraCharacteristics.LENS_FACING)==facing }
-            ?: error("Cámara no disponible")
+        val id=settings.cameraId.takeIf { it in manager.cameraIdList } ?: error("La cámara seleccionada ya no está disponible.")
         manager.openCamera(id,object:CameraDevice.StateCallback() {
             override fun onOpened(device:CameraDevice) {
                 if(closed.get()) { device.close(); return }

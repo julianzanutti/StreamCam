@@ -4,12 +4,12 @@ Necesitás una PC con Windows de 64 bits, un teléfono con Android 10 o posterio
 
 ## 1. Descargar
 
-Abrí [Releases de StreamCam](https://github.com/julianzanutti/StreamCam/releases) y entrá a la versión preliminar más reciente. En **Assets**, descargá:
+Abrí [Descargas de StreamCam 0.3.14](https://github.com/julianzanutti/StreamCam/releases/tag/v0.3.14-preview) y en **Assets** descargá:
 
 - El archivo que termina en **windows-x64-setup.exe**, el instalador para la PC.
 - El archivo que termina en **android-preview.apk**, para el teléfono.
 
-No descargues **Source code**: es para desarrollar. El APK es de prueba, no una versión estable de Play Store.
+No descargues **Source code**: es para desarrollar. El APK y el instalador son versiones preliminares; Android no está en Play Store.
 
 ## 2. Preparar los dos equipos
 
@@ -25,21 +25,17 @@ No descargues **Source code**: es para desarrollar. El APK es de prueba, no una 
 4. Elegí **Solo video**, calidad **HD / 720p**, tocá **Iniciar** y aceptá el permiso de cámara.
 5. Comprobá que ves la imagen en Windows. Tocá **Detener** en Android para terminar.
 
-Si preferís cable, seguí [la conexión por USB](docs/INSTALACION.md#conectar-por-usb): necesita un cable de datos, depuración USB y autorización del teléfono. ADB ya viene en el ZIP.
+Si preferís cable, seguí [la conexión por USB](docs/INSTALACION.md#conectar-por-usb): necesita un cable de datos, depuración USB y autorización del teléfono. ADB ya viene con el instalador de Windows.
 
 ## 4. Usarlo en OBS
 
-1. Si marcaste la opción **Instalar la fuente StreamCam para OBS** en el instalador, ya está preparada. Si no, cerrá OBS y volvé a ejecutar el instalador marcando esa opción. El plugin se compiló para OBS Studio **33.0.1 de 64 bits**. Como alternativa para el ZIP portable, abrí PowerShell en la carpeta extraída y ejecutá:
-
-   ```powershell
-   powershell -ExecutionPolicy Bypass -File .\obs-plugin\install.ps1
-   ```
+1. Durante la instalación, con OBS cerrado, marcá **Instalar la fuente StreamCam para OBS**. Si no la marcaste, cerrá OBS y volvé a ejecutar el instalador para agregarla. El plugin se compiló para OBS Studio **33.0.1 de 64 bits**.
 
 2. Abrí OBS y agregá **Fuentes → + → StreamCam**.
 3. Para probar sonido, elegí **Audio + video** en Android, iniciá y aceptá el permiso de micrófono. Hablá y mirá el medidor de StreamCam en el mezclador de OBS.
 4. Para usar la imagen en una videollamada, pulsá **Iniciar cámara virtual** en OBS y elegí **OBS Virtual Camera** en la llamada.
 
-La cámara virtual de OBS lleva video. StreamCam entrega audio a OBS, pero **no instala un micrófono virtual de Windows**. Para esta primera prueba, usá el micrófono habitual de la PC en la videollamada.
+La cámara virtual de OBS lleva video. StreamCam entrega audio a la fuente de OBS; para usar ese audio como entrada en Discord u otras apps, seguí la [guía de micrófono virtual para Windows](docs/AUDIO_VIRTUAL_WINDOWS.md). Requiere instalar por separado un controlador como VB-CABLE.
 
 ## 5. Contarme cómo salió
 

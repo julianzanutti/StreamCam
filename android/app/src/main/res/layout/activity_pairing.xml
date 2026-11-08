@@ -24,6 +24,16 @@
                 <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginBottom="16dp" android:text="Elegí transmitir solo video, solo audio o ambos. El micrófono se usa únicamente si lo seleccionás." android:textSize="13sp" android:lineSpacingExtra="2dp" android:textColor="#5F6368"/>
                 <TextView style="@style/StreamCam.FieldLabel" android:text="Qué transmitir" android:labelFor="@id/capture_mode"/>
                 <Spinner android:id="@+id/capture_mode" style="@style/StreamCam.Field"/>
+                <TextView style="@style/StreamCam.FieldLabel" android:text="Micrófono" android:labelFor="@id/audio_input_choice"/>
+                <Spinner android:id="@+id/audio_input_choice" style="@style/StreamCam.Field"/>
+                <com.google.android.material.button.MaterialButton android:id="@+id/refresh_audio_inputs" style="@style/StreamCam.TextAction" android:text="Actualizar entradas de audio"/>
+                <TextView android:id="@+id/audio_microphone_inventory" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginBottom="8dp" android:textColor="#5F6368" android:textSize="12sp" android:accessibilityLiveRegion="polite"/>
+                <TextView style="@style/StreamCam.FieldLabel" android:text="Procesamiento del micrófono" android:labelFor="@id/audio_source_choice"/>
+                <Spinner android:id="@+id/audio_source_choice" style="@style/StreamCam.Field"/>
+                <com.google.android.material.checkbox.MaterialCheckBox android:id="@+id/audio_echo_cancellation" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="Cancelar eco al capturar" android:checked="true"/>
+                <com.google.android.material.checkbox.MaterialCheckBox android:id="@+id/audio_noise_suppression" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="Suprimir ruido" android:checked="true"/>
+                <com.google.android.material.checkbox.MaterialCheckBox android:id="@+id/audio_auto_gain" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="Ganancia automática · si el teléfono la admite" android:checked="false"/>
+                <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginBottom="8dp" android:text="Android combina sus micrófonos integrados cuando corresponde. También podés elegir una entrada USB, cableada o Bluetooth que el sistema detecte. Se aplica al iniciar la captura." android:textColor="#5F6368" android:textSize="12sp"/>
                 <TextView style="@style/StreamCam.FieldLabel" android:text="Lente" android:labelFor="@id/camera_choice"/>
                 <Spinner android:id="@+id/camera_choice" style="@style/StreamCam.Field"/>
                 <TextView style="@style/StreamCam.FieldLabel" android:text="Resolución y cuadros por segundo" android:labelFor="@id/quality_choice"/>
@@ -38,5 +48,8 @@
             <com.google.android.material.button.MaterialButton android:id="@+id/diagnostics" style="@style/StreamCam.TextAction" android:layout_width="0dp" android:layout_weight="1" android:text="Diagnóstico"/>
             <com.google.android.material.button.MaterialButton android:id="@+id/forget_saved" style="@style/StreamCam.TextAction" android:layout_width="0dp" android:layout_weight="1" android:text="Olvidar PC" android:textColor="#B3261E"/>
         </LinearLayout>
+        <com.google.android.material.button.MaterialButton android:id="@+id/check_updates" style="@style/StreamCam.Outline"
+            android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="8dp"
+            android:text="Verificar actualizaciones" android:contentDescription="Buscar una nueva versión de StreamCam para Android"/>
     </LinearLayout>
 </ScrollView>

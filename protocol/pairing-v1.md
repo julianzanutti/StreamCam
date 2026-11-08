@@ -8,6 +8,8 @@ Estado: implementado y probado con cliente TLS independiente; falta escaneo/hand
 
 La reconexión usa `reconnect.hello` (version,type,device_id), desafío aleatorio nuevo de32 bytes por conexión en `reconnect.challenge`, y `reconnect.proof` (version,type,device_id,device_proof) firmado sobre `StreamCam reconnect v1\n<pc_id>\n<challenge>`. El desafío se consume antes de verificar y no puede reutilizarse. Exige clave pública guardada no revocada y confirmación visible. Escucha habilitada por usuario y vencimiento120s; sesión autorizada mantiene solo su socket. Revocar cierra sesión y bloquea la identidad persistida.
 
+Tras la confirmación, `pair.accepted` conserva su forma v1. Las extensiones optativas del canal autenticado se negocian después mediante `control.hello` y `control.ready`; ver `control-v2.schema.json`.
+
 ## Propósito
 
 El QR autoriza un intento de pairing entre esta instalación Windows y un teléfono. No contiene video, oferta SDP ni credenciales permanentes. Escanearlo no inicia la cámara ni transmite medios.

@@ -15,6 +15,7 @@
 #include <codecapi.h>
 #include <libyuv.h>
 #include <cstdio>
+#include <limits>
 
 namespace streamcam {
 // System H.264 MFT. RAM output first; GPU path must be explicitly configured/measured.
@@ -52,7 +53,7 @@ class MfH264Decoder final : public webrtc::VideoDecoder {
     }
 public:
     ~MfH264Decoder() override { Release(); }
-    bool Configure(const Settings &) override {
+    bool Configure(const Settings &settings) override {
         Release();
         const auto result=CoInitializeEx(nullptr,COINIT_MULTITHREADED);
         com_=SUCCEEDED(result);
@@ -91,7 +92,10 @@ public:
         Ptr<IMFMediaType> input;
         if (FAILED(MFCreateMediaType(&input))) return false;
         input->SetGUID(MF_MT_MAJOR_TYPE,MFMediaType_Video); input->SetGUID(MF_MT_SUBTYPE,MFVideoFormat_H264);
-        MFSetAttributeSize(input.Get(),MF_MT_FRAME_SIZE,1280,720);
+        const auto render=settings.max_render_resolution();
+        const UINT32 inputWidth=render.Valid() ? static_cast<UINT32>(render.Width()) : 1280;
+        const UINT32 inputHeight=render.Valid() ? static_cast<UINT32>(render.Height()) : 720;
+        MFSetAttributeSize(input.Get(),MF_MT_FRAME_SIZE,inputWidth,inputHeight);
         MFSetAttributeRatio(input.Get(),MF_MT_FRAME_RATE,30,1);
         input->SetUINT32(MF_MT_INTERLACE_MODE,MFVideoInterlace_Progressive);
         if (FAILED(decoder_->SetInputType(0,input.Get(),0)) || !selectOutput()) return false;
@@ -106,7 +110,16 @@ public:
         if (FAILED(MFCreateSample(&sample)) || FAILED(MFCreateMemoryBuffer(static_cast<DWORD>(image.size()),&buffer))) return -1;
         BYTE *data=nullptr; if (FAILED(buffer->Lock(&data,nullptr,nullptr))) return -1;
         memcpy(data,image.data(),image.size()); buffer->Unlock(); buffer->SetCurrentLength(static_cast<DWORD>(image.size()));
-        sample->AddBuffer(buffer.Get()); sample->SetSampleTime(static_cast<LONGLONG>(image.RtpTimestamp())*10000000/90000);
+        sample->AddBuffer(buffer.Get());
+        const auto captureMs=image.capture_time_ms_;
+        const auto sampleTime=captureMs>0 && captureMs<=std::numeric_limits<LONGLONG>::max()/10000
+            ? static_cast<LONGLONG>(captureMs)*10000
+            : static_cast<LONGLONG>(image.RtpTimestamp())*10000000/90000;
+        const auto exactTimestampUs=image.PresentationTimestamp() &&
+            !image.PresentationTimestamp()->IsMinusInfinity() && !image.PresentationTimestamp()->IsPlusInfinity()
+            ? image.PresentationTimestamp()->us()
+            : (captureMs>0 && captureMs<=std::numeric_limits<std::int64_t>::max()/1000 ? captureMs*1000 : 0);
+        sample->SetSampleTime(sampleTime);
         sample->SetSampleDuration(333333);
         if (FAILED(decoder_->ProcessInput(0,sample.Get(),0))) return -1;
         for (unsigned attempt=0;attempt<8;++attempt) {
@@ -145,7 +158,7 @@ public:
                     i420->MutableDataY(),i420->StrideY(),i420->MutableDataU(),i420->StrideU(),i420->MutableDataV(),i420->StrideV(),width_,height_);
                 context_->Unmap(staging_.Get(),0);
                 if(!gpuOutputSeen_) { std::fprintf(stderr,"Media Foundation delivered a D3D11 NV12 surface\n"); std::fflush(stderr); gpuOutputSeen_=true; }
-                auto frame=webrtc::VideoFrame::Builder().set_video_frame_buffer(i420).set_rtp_timestamp(image.RtpTimestamp()).build();
+                auto frame=webrtc::VideoFrame::Builder().set_video_frame_buffer(i420).set_timestamp_us(exactTimestampUs).set_rtp_timestamp(image.RtpTimestamp()).build();
                 callback_->Decoded(frame); continue;
             }
             if(FAILED(output->ConvertToContiguousBuffer(&pixels))) return -1;
@@ -156,7 +169,7 @@ public:
             libyuv::NV12ToI420(data,stride_,data+stride_*codedHeight_,stride_,i420->MutableDataY(),i420->StrideY(),
                 i420->MutableDataU(),i420->StrideU(),i420->MutableDataV(),i420->StrideV(),width_,height_);
             pixels->Unlock();
-            auto frame=webrtc::VideoFrame::Builder().set_video_frame_buffer(i420).set_rtp_timestamp(image.RtpTimestamp()).build();
+            auto frame=webrtc::VideoFrame::Builder().set_video_frame_buffer(i420).set_timestamp_us(exactTimestampUs).set_rtp_timestamp(image.RtpTimestamp()).build();
             callback_->Decoded(frame);
         }
         return 0;
