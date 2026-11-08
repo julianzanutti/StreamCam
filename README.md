@@ -4,16 +4,16 @@ Usá la cámara y el micrófono de tu teléfono Android en OBS Studio para Windo
 
 ## Descargar StreamCam
 
-### [⬇ Abrir descargas oficiales de StreamCam](https://github.com/julianzanutti/StreamCam/releases/tag/v0.3.15-preview)
+### [⬇ Abrir descargas oficiales de StreamCam](https://github.com/julianzanutti/StreamCam/releases/tag/v0.3.16-preview)
 
 En la página, abrí **Assets** y descargá el archivo que corresponde a cada equipo:
 
 | Equipo | Descarga |
 |---|---|
-| Windows | [⬇ Descargar instalador de StreamCam](https://github.com/julianzanutti/StreamCam/releases/download/v0.3.15-preview/StreamCam-0.3.15-preview-windows-x64-setup.exe) |
-| Android | [📱 Descargar APK de StreamCam](https://github.com/julianzanutti/StreamCam/releases/download/v0.3.15-preview/StreamCam-0.3.15-preview-android-preview.apk) |
+| Windows | [⬇ Descargar instalador de StreamCam](https://github.com/julianzanutti/StreamCam/releases/download/v0.3.16-preview/StreamCam-0.3.16-preview-windows-x64-setup.exe) |
+| Android | [📱 Descargar APK de StreamCam](https://github.com/julianzanutti/StreamCam/releases/download/v0.3.16-preview/StreamCam-0.3.16-preview-android-preview.apk) |
 
-**La publicación actual es StreamCam 0.3.15-preview.** El instalador de Windows termina en `windows-x64-setup.exe`; el archivo de Android termina en `android-preview.apk`. No elijas **Source code (zip)** ni **Source code (tar.gz)**: esos archivos son para inspeccionar el proyecto, no para instalarlo. La versión de Android no está en Play Store. Windows puede mostrar un aviso porque el instalador no tiene firma de editor; no desactives Play Protect ni Defender. Leé [los detalles de seguridad](SECURITY.md).
+**La publicación actual es StreamCam 0.3.16-preview.** El instalador de Windows termina en `windows-x64-setup.exe`; el archivo de Android termina en `android-preview.apk`. No elijas **Source code (zip)** ni **Source code (tar.gz)**: esos archivos son para inspeccionar el proyecto, no para instalarlo. La versión de Android no está en Play Store. Windows puede mostrar un aviso porque el instalador no tiene firma de editor; no desactives Play Protect ni Defender. Leé [los detalles de seguridad](SECURITY.md).
 
 ## Instrucciones
 
@@ -29,7 +29,7 @@ Seguí la [guía paso a paso](EMPEZAR.md): instalar en Windows y Android, conect
 
 ![Controles de voz de StreamCam para Windows](docs/screenshots/windows-voz.jpg)
 
-La segunda captura muestra los controles de voz incluidos en 0.3.15-preview. Su comportamiento con micrófonos físicos y distintos fabricantes sigue en validación.
+La segunda captura muestra los controles de voz incluidos en 0.3.16-preview. Su comportamiento con micrófonos físicos y distintos fabricantes sigue en validación.
 
 ## Qué incluye la versión pública
 

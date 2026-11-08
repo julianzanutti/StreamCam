@@ -1,7 +1,7 @@
 param(
-    [string]$Version = '0.3.15-preview',
-    [string]$PackageName = 'StreamCam-v2-0.3.15-preview',
-    [string]$ReleaseName = 'v2-0.3.15-preview'
+    [string]$Version = '0.3.16-preview',
+    [string]$PackageName = 'StreamCam-v2-0.3.16-preview',
+    [string]$ReleaseName = 'v2-0.3.16-preview'
 )
 $ErrorActionPreference = 'Stop'
 if ($Version -notmatch '^\d+\.\d+\.\d+(?:-[A-Za-z0-9.-]+)?$') { throw 'Versión inválida.' }

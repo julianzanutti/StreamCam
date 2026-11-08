@@ -7,6 +7,7 @@
 #include <QtEndian>
 #include <QVariant>
 #include <cmath>
+#include <functional>
 #include <cstring>
 
 namespace streamcam {
@@ -38,6 +39,7 @@ public:
             });
         }
     }
+    std::function<void(const std::int16_t*,unsigned,unsigned)> directOutput;
     void setVoiceSettings(const VoiceSettings &settings) { processor_.setSettings(settings); }
     const VoiceSettings &voiceSettings() const { return processor_.settings(); }
     float outputPeakDbfs() const { return outputPeakDbfs_; }
@@ -76,6 +78,7 @@ public:
         QByteArray packet(32+payloadBytes,'\0');
         std::memcpy(packet.data(),header.constData(),32);
         if(payloadBytes>0)std::memcpy(packet.data()+32,pcmData,static_cast<std::size_t>(payloadBytes));
+        if(directOutput) directOutput(pcmData,frames,channels);
         float peak=0.0F;
         for(std::size_t i=0;i<static_cast<std::size_t>(frames)*channels;++i)
             peak=std::max(peak,std::abs(static_cast<float>(pcmData[i])/32768.0F));

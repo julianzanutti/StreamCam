@@ -2,7 +2,15 @@
 
 StreamCam envía el micrófono Android a la fuente de audio/video **StreamCam** dentro de OBS. La cámara virtual de OBS comparte el video; no expone por sí misma un micrófono de Windows. Para seleccionar el audio del teléfono en Discord, Meet u otra aplicación, Windows necesita un endpoint de captura de audio virtual.
 
-## Ruta recomendada con VB-CABLE
+## Salida directa de 0.3.16-preview
+
+La versión 0.3.16-preview incorpora un selector **Salida directa de audio** en Windows. Con VB-CABLE instalado, elegí **CABLE Input** allí y **CABLE Output** como micrófono en la aplicación de llamadas. OBS no es necesario para esta ruta. La selección está desactivada al iniciar y no modifica los dispositivos predeterminados del sistema. Tras conectar o retirar un dispositivo, pulsá **Actualizar salidas de audio** y seleccioná el destino de nuevo.
+
+Mute, ganancia y efectos se aplican antes de enviar el audio tanto a OBS como a la salida directa. La salida WASAPI limita el audio pendiente a 120 ms; el estado informa errores de apertura/escritura. No selecciones parlantes si eso produce retorno al micrófono.
+
+Prueba local con VB-CABLE: el worker real entregó tonos estéreo separados a CABLE Output sin cliente OBS; mute bajó el pico a 1 unidad PCM16, con cero bloques descartados en esa ejecución. La prueba sintética de 60 segundos pasó sin descartes, con mute y recuperación. La ruta con audio real del Moto G32 pasó 10 segundos sin descartes y con señal capturada. Las pruebas no acreditan sesiones de horas ni Discord, que no está instalado en el equipo de prueba. Si el productor se retrasa más que el presupuesto de cola, puede haber descartes visibles en el contador.
+
+## Ruta para la versión publicada 0.3.15 con VB-CABLE y OBS
 
 VB-CABLE es un controlador virtual independiente. Windows lo presenta como **CABLE Input** (reproducción) y **CABLE Output** (grabación). Instálalo solo desde el [sitio oficial de VB-Audio](https://vb-audio.com/Cable/). La instalación de controladores requiere permisos de administrador y puede pedir reiniciar Windows; StreamCam no lo instala ni lo distribuye.
 

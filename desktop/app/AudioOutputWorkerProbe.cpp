@@ -113,7 +113,10 @@ int main(int argc,char **argv) {
         if(!reconnected){recoveredClient.abort();std::this_thread::sleep_for(std::chrono::milliseconds(20));}
     }
     if(!reconnected){std::cerr<<"Audio pipe did not accept a client after reconnection.\n";return 1;}
-    std::cerr<<"probe: reconnected\n";
+    for(int attempt=0;attempt<100 && output.obsClientCount()==0;++attempt)
+        std::this_thread::sleep_for(std::chrono::milliseconds(10));
+    if(output.obsClientCount()!=1){std::cerr<<"Worker did not accept reconnected client\n";return 1;}
+    std::cerr<<"probe: reconnected and accepted\n";
     auto recovered=std::make_shared<streamcam::AudioFrame>();
     recovered->sampleRate=48000;recovered->channels=1;recovered->frames=960;
     recovered->timestampUs=10'020'000;recovered->pcm.assign(960,3456);

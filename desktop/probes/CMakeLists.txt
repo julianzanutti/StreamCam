@@ -64,3 +64,7 @@ foreach(test_name IN LISTS streamcam_probe_tests)
     set_property(TEST "${test_name}" APPEND PROPERTY ENVIRONMENT_MODIFICATION
         "PATH=path_list_prepend:$<TARGET_FILE_DIR:Qt6::Core>")
 endforeach()
+
+if(WIN32)
+    target_link_libraries(StreamCamAudioOutputWorkerProbe PRIVATE winmm ole32 uuid avrt)
+endif()

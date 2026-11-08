@@ -1,5 +1,16 @@
 # StreamCam V2 · Plan de desarrollo
 
+
+## Candidato 0.3.16-preview — salida directa Windows
+
+Windows incorpora salida WASAPI de audio a un dispositivo elegido durante la ejecución, desactivada al inicio. Con VB-CABLE instalado por separado, CABLE Input recibe la salida de StreamCam y CABLE Output aparece como micrófono de Windows para aplicaciones de llamadas. OBS sigue disponible como consumidor independiente. StreamCam no distribuye ni instala automáticamente el controlador externo y no modifica el dispositivo predeterminado de Windows.
+
+La salida usa el PCM después de ganancia, mute y efectos, con límite de 120 ms pendiente en el dispositivo y contador de descartes. El worker usa planificación multimedia y temporizador preciso. Los errores de apertura/escritura son visibles; actualizar la lista desactiva la selección para evitar elegir silenciosamente otro dispositivo. Los identificadores de ejecución no se guardan entre arranques.
+
+Evidencia local: prueba de 60 segundos con tonos estéreo separados, mute, error por dispositivo inválido, desactivación y reapertura aprobada sin descartes; prueba con audio real del Moto G32 durante 10 segundos aprobada sin descartes, RMS capturado 226,906 PCM16; suite Windows 10/10 aprobada. Los ensayos anteriores con productor retrasado hasta 141 ms mostraron descartes y se conservaron como evidencia del límite de cola. Se corrigió la prueba del teléfono para conectar después de preparar los dispositivos, evitando una ráfaga artificial acumulada durante la inicialización; la prueba OBS espera la aceptación del cliente antes de medir recuperación.
+
+La migración Android física comprobada sigue siendo 0.2.2 → 0.3.14 por ADB. Las pruebas de esta salida no sustituyen instalación física del candidato, uso en Discord, escucha/calibración, sincronía audiovisual, sesiones de horas ni matriz de fabricantes. El APK sigue siendo debug y Windows carece de Authenticode; publicación preliminar.
+
 Fecha: 2026-11-08. Base auditada: `e1a646d`, revisión estática del repositorio y documentación V1. Este documento combina el plan y el estado local de implementación; las pruebas físicas siguen pendientes cuando se indican.
 
 ## Estado local de implementación (2026-11-08)

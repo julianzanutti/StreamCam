@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.25)
-project(StreamCamDesktop VERSION 0.3.15 LANGUAGES CXX)
+project(StreamCamDesktop VERSION 0.3.16 LANGUAGES CXX)
 enable_testing()
 
 set(CMAKE_CXX_STANDARD 20)
@@ -77,3 +77,11 @@ add_executable(StreamCamAudioEffectsAckProbe AudioEffectsAckProbe.cpp)
 add_test(NAME AudioEffectsAck COMMAND StreamCamAudioEffectsAckProbe)
 add_executable(StreamCamControlNegotiationProbe ControlNegotiationProbe.cpp)
 add_test(NAME ControlNegotiation COMMAND StreamCamControlNegotiationProbe)
+
+if(WIN32)
+    target_link_libraries(StreamCamAudioOutputWorkerProbe PRIVATE winmm ole32 uuid avrt)
+endif()
+target_link_libraries(StreamCamDesktop PRIVATE winmm ole32 uuid avrt)
+
+add_executable(StreamCamWindowsAudioLoopbackProbe WindowsAudioLoopbackProbe.cpp)
+target_link_libraries(StreamCamWindowsAudioLoopbackProbe PRIVATE Qt6::Core Qt6::Network winmm ole32 uuid avrt)

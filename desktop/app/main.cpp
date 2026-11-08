@@ -255,6 +255,42 @@ public:
             sendAndroidAudioEffects();
         });
         applyVoiceSettings();
+        auto *audioDeviceLabel=new QLabel(QStringLiteral("Salida directa de audio · cable virtual o auriculares"),connection);
+        connectionLayout->addWidget(audioDeviceLabel);
+        auto *audioDevice=new QComboBox(connection);
+        audioDevice->setAccessibleName(QStringLiteral("Salida directa de audio de Windows"));
+        audioDevice->addItem(QStringLiteral("Desactivada · solo OBS"),-1);
+        for(const auto &device:streamcam::WindowsAudioOutput::devices()) {
+            audioDevice->addItem(QString::fromStdWString(device.name),static_cast<int>(device.id));
+            audioDevice->setItemData(audioDevice->count()-1,QString::fromStdWString(device.endpointId),Qt::UserRole+1);
+        }
+        connectionLayout->addWidget(audioDevice);
+        auto *audioDeviceHelp=new QLabel(QStringLiteral("Para Discord, elegí la entrada de reproducción de un cable virtual instalado y seleccioná su salida de grabación en Discord. La salida se activa solo durante esta ejecución."),connection);
+        audioDeviceHelp->setWordWrap(true);connectionLayout->addWidget(audioDeviceHelp);
+        connect(audioDevice,qOverload<int>(&QComboBox::currentIndexChanged),this,[this,audioDevice](int) {
+            audioOutput_.setOutputDevice(audioDevice->currentData().toInt(),audioDevice->currentData(Qt::UserRole+1).toString());
+        });
+        auto *refreshAudioDevices=new QPushButton(QStringLiteral("Actualizar salidas de audio"),connection);
+        connectionLayout->addWidget(refreshAudioDevices);
+        connect(refreshAudioDevices,&QPushButton::clicked,this,[this,audioDevice] {
+            audioOutput_.setOutputDevice(-1);
+            QSignalBlocker blocker(audioDevice);
+            audioDevice->clear();audioDevice->addItem(QStringLiteral("Desactivada · solo OBS"),-1);
+            for(const auto &device:streamcam::WindowsAudioOutput::devices()) {
+                audioDevice->addItem(QString::fromStdWString(device.name),static_cast<int>(device.id));
+                audioDevice->setItemData(audioDevice->count()-1,QString::fromStdWString(device.endpointId),Qt::UserRole+1);
+            }
+        });
+        auto *directStatus=new QLabel(connection);directStatus->setWordWrap(true);
+        connectionLayout->addWidget(directStatus);
+        auto *directStatusTimer=new QTimer(directStatus);
+        connect(directStatusTimer,&QTimer::timeout,this,[this,directStatus] {
+            const auto status=audioOutput_.directOutputStatus();
+            directStatus->setText(status<0?QStringLiteral("Salida directa desactivada"):
+                status==0?QStringLiteral("Salida directa abierta · descartes: %1").arg(audioOutput_.directDroppedFrames()):
+                QStringLiteral("No se pudo usar la salida de audio (error %1). Actualizá la lista y elegí el dispositivo de nuevo.").arg(status));
+        });
+        directStatusTimer->start(500);
         auto *savedToggle=new QPushButton(QStringLiteral("Teléfonos vinculados ▸"),connection);
         savedToggle->setObjectName(QStringLiteral("textAction"));savedToggle->setCheckable(true);
         connectionLayout->addWidget(savedToggle);
@@ -468,12 +504,12 @@ public:
         connect(virtualMicrophone,&QPushButton::clicked,this,[this] {
             QMessageBox box(QMessageBox::Information,QStringLiteral("Micrófono virtual para otras aplicaciones"),
                 QStringLiteral("StreamCam ya entrega el micrófono del teléfono a la fuente StreamCam de OBS. Para una transmisión hecha en OBS, agregá esa fuente y asegurate de que esté habilitada en el mezclador.\n\n"
-                    "Discord y otras aplicaciones necesitan un dispositivo de entrada de Windows. La cámara virtual de OBS solo lleva video. Para el audio hace falta un controlador de cable virtual, como VB-CABLE, y configurar OBS para enviar el audio de StreamCam a ese cable.\n\n"
+                    "Discord y otras aplicaciones necesitan un dispositivo de entrada de Windows. La cámara virtual de OBS solo lleva video. Para el audio hace falta un controlador de cable virtual, como VB-CABLE, y elegir ese cable en Salida directa de audio de StreamCam.\n\n"
                     "1. Instalá VB-CABLE desde el sitio oficial y reiniciá Windows si el instalador lo solicita.\n"
-                    "2. En OBS: Archivo → Configuración → Audio → Avanzado → Dispositivo de monitorización: CABLE Input (VB-Audio Virtual Cable).\n"
-                    "3. En OBS: Editar → Propiedades de audio avanzadas → fila StreamCam → Monitorización de audio: Monitorizar y salida.\n"
+                    "2. En StreamCam: Actualizar salidas de audio → CABLE Input (VB-Audio Virtual Cable).\n"
+                    "3. En Android, iniciá Solo audio o Audio + video. Los controles de voz y mute se aplican a esta salida.\n"
                     "4. En Discord: Ajustes → Voz y vídeo → Dispositivo de entrada: CABLE Output (VB-Audio Virtual Cable).\n\n"
-                    "Para enviar el micrófono solo a Discord, usá Monitorizar solamente en el paso 3. Para incluirlo en tu directo de OBS, usá Monitorizar y salida. Evitá capturar el retorno del cable en OBS para prevenir eco."),
+                    "OBS no es necesario para la salida directa. Para incluir audio en tu directo OBS, agregá además la fuente StreamCam. Evitá monitorizar la misma señal al cable desde OBS para no duplicarla."),
                 QMessageBox::Ok,this);
             auto *download=box.addButton(QStringLiteral("Descargar VB-CABLE (sitio oficial)"),QMessageBox::ActionRole);
             box.exec();
@@ -697,9 +733,9 @@ private:
         QSignalBlocker blocker(transport_);
         transport_->clear();
         transport_->addItem(QStringLiteral("USB · cable de datos"),QStringLiteral("127.0.0.1"));
-        for(const auto &interface:QNetworkInterface::allInterfaces()) {
-            if(!(interface.flags()&QNetworkInterface::IsUp) || interface.flags()&QNetworkInterface::IsLoopBack)continue;
-            for(const auto &entry:interface.addressEntries()) {
+        for(const auto &networkInterface:QNetworkInterface::allInterfaces()) {
+            if(!(networkInterface.flags()&QNetworkInterface::IsUp) || networkInterface.flags()&QNetworkInterface::IsLoopBack)continue;
+            for(const auto &entry:networkInterface.addressEntries()) {
                 const auto ip=entry.ip().toIPv4Address();
                 if((ip>>24)==10 || (ip>>20)==0xac1 || (ip>>16)==0xc0a8)
                     transport_->addItem(QStringLiteral("Wi-Fi / red local · ")+entry.ip().toString(),entry.ip().toString());
